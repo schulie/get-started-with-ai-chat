@@ -51,6 +51,25 @@ interface IRehypeNode {
   value?: string;
 }
 
+function safeMediaUrl(raw: string): string | null {
+  try {
+    const url = new URL(raw, window.location.origin);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
+function InlineImage({ src, alt }: { src?: string; alt?: string }) {
+  const url = src ? safeMediaUrl(src) : null;
+  if (!url) return <span>{alt ?? "Image unavailable"}</span>;
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer">
+      <img src={url} alt={alt ?? ""} className={styles.mediaImage} loading="lazy" />
+    </a>
+  );
+}
+
 function Hyperlink({
   node,
   children,
@@ -58,13 +77,47 @@ function Hyperlink({
 }: ClassAttributes<HTMLAnchorElement> &
   AnchorHTMLAttributes<HTMLAnchorElement> &
   ExtraProps) {
+  const raw = node?.properties.href?.toString() ?? "";
+  const href = safeMediaUrl(raw);
+  if (!href) return <span>{children}</span>;
+
+  const extension = new URL(href).pathname.toLowerCase();
+  if (/\\.(mp4|webm|ogv)$/.test(extension)) {
+    return (
+      <figure className={styles.mediaFigure}>
+        <video controls preload="metadata" className={styles.mediaPlayer} src={href}>
+          Your browser does not support this video.
+        </video>
+        <figcaption><a href={href} target="_blank" rel="noopener noreferrer">{children}</a></figcaption>
+      </figure>
+    );
+  }
+  if (/\\.(mp3|wav|ogg|m4a|aac)$/.test(extension)) {
+    return (
+      <figure className={styles.mediaFigure}>
+        <audio controls preload="metadata" className={styles.mediaPlayer} src={href}>
+          Your browser does not support this audio.
+        </audio>
+        <figcaption><a href={href} target="_blank" rel="noopener noreferrer">{children}</a></figcaption>
+      </figure>
+    );
+  }
+  if (/\\.pdf$/.test(extension)) {
+    return (
+      <div className={styles.pdfViewer}>
+        <a href={href} target="_blank" rel="noopener noreferrer">{children} (open PDF)</a>
+        <iframe title="PDF preview" src={href} className={styles.pdfFrame} loading="lazy" />
+      </div>
+    );
+  }
+
   return (
     <a
-      href={node?.properties.href?.toString() ?? ""}
+      {...linkProps}
+      href={href}
       target="_blank"
       rel="noopener noreferrer"
       className={styles.link}
-      {...linkProps}
     >
       {children}
     </a>
@@ -255,6 +308,7 @@ export function Markdown({
               components={{
                 code: CodeBlock,
                 a: Hyperlink,
+                img: InlineImage,
                 details: ThinkBlock,
                 p: Paragraph,
               }}

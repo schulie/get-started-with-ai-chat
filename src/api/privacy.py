@@ -5,6 +5,7 @@ identity/access controls remain the authentication boundary.
 """
 import json
 import logging
+import os
 import time
 from urllib.parse import urlsplit
 from uuid import UUID, uuid4
@@ -15,9 +16,34 @@ MAX_CONTENT_CHARS = 400_000
 logger = logging.getLogger("jmcgpt.audit")
 
 
+def origin_key(value):
+    """Compare complete origins without trusting client-supplied proxy headers."""
+    try:
+        if (not value or any(ord(character) < 33 or ord(character) > 126 for character in value)
+            or "?" in value or "#" in value):
+            return None
+        parsed = urlsplit(value)
+        if (parsed.scheme not in ("http", "https") or not parsed.hostname
+            or parsed.username is not None or parsed.password is not None
+            or parsed.path or parsed.query or parsed.fragment):
+            return None
+        port = parsed.port
+        if port is None:
+            port = 443 if parsed.scheme == "https" else 80
+        if port < 1:
+            return None
+        return parsed.scheme, parsed.hostname.lower(), port
+    except (ValueError, UnicodeError):
+        return None
+
+
 class SessionPrivacyMiddleware:
-    def __init__(self, app):
+    def __init__(self, app, public_origin=None):
         self.app = app
+        configured = public_origin if public_origin is not None else os.getenv("JMCGPT_PUBLIC_ORIGIN")
+        self.public_origin = origin_key(configured) if configured is not None else None
+        if configured is not None and self.public_origin is None:
+            raise ValueError("Invalid public origin configuration")
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
@@ -34,10 +60,10 @@ class SessionPrivacyMiddleware:
         except (ValueError, UnicodeError):
             pass
 
-        async def reject(code):
+        async def reject(code, error_code="request_rejected"):
             nonlocal status
             status = code
-            body = json.dumps({"error": {"code": "request_rejected"}}).encode()
+            body = json.dumps({"error": {"code": error_code}}).encode()
             await send({"type": "http.response.start", "status": code, "headers": [
                 (b"content-type", b"application/json"), (b"cache-control", b"no-store, private"),
                 (b"x-request-id", request_id.encode()), (b"x-content-type-options", b"nosniff"),
@@ -47,16 +73,23 @@ class SessionPrivacyMiddleware:
         try:
             app_receive = receive
             if is_chat:
-                origin = headers.get(b"origin")
-                if origin:
+                origins = [value for name, value in scope.get("headers", []) if name.lower() == b"origin"]
+                if len(origins) > 1:
+                    return await reject(403, "origin_rejected")
+                if origins:
                     try:
-                        parsed = urlsplit(origin.decode("ascii"))
-                        valid = parsed.scheme in ("http", "https") and not parsed.username and not parsed.password
-                        valid = valid and parsed.netloc.lower() == headers.get(b"host", b"").decode("ascii").lower()
+                        incoming_origin = origin_key(origins[0].decode("ascii"))
+                        # Azure ingress may replace Host and terminate TLS. The
+                        # configured public origin remains the browser boundary.
+                        expected_origin = self.public_origin
+                        if expected_origin is None:
+                            host = headers.get(b"host", b"").decode("ascii")
+                            expected_origin = origin_key(scope.get("scheme", "http") + "://" + host)
+                        valid = incoming_origin is not None and incoming_origin == expected_origin
                     except (ValueError, UnicodeError):
                         valid = False
                     if not valid:
-                        return await reject(403)
+                        return await reject(403, "origin_rejected")
                 if scope.get("method") != "POST":
                     return await reject(405)
                 if headers.get(b"content-type", b"").split(b";", 1)[0].strip().lower() != b"application/json":

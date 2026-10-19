@@ -6,7 +6,8 @@ from privacy import MAX_REQUEST_BYTES, SessionPrivacyMiddleware
 
 
 class PrivacyTests(unittest.IsolatedAsyncioTestCase):
-    async def request(self, app, payload=None, raw=None, origin=b"https://clinic.example"):
+    async def request(self, app, payload=None, raw=None, origin=b"https://clinic.example",
+        host=b"clinic.example", scheme="https", public_origin="https://clinic.example", extra_headers=()):
         outgoing = []
         body = raw if raw is not None else json.dumps(payload or {"messages": [{"role": "user", "content": "synthetic-private-canary"}]}).encode()
         incoming = [{"type": "http.request", "body": body, "more_body": False}]
@@ -16,11 +17,54 @@ class PrivacyTests(unittest.IsolatedAsyncioTestCase):
             await asyncio.Future()
         async def send(message):
             outgoing.append(message)
-        headers = [(b"host", b"clinic.example"), (b"content-type", b"application/json")]
-        if origin:
+        headers = [(b"host", host), (b"content-type", b"application/json"), *extra_headers]
+        if origin is not None:
             headers.append((b"origin", origin))
-        await SessionPrivacyMiddleware(app)({"type": "http", "path": "/chat", "method": "POST", "headers": headers}, receive, send)
+        await SessionPrivacyMiddleware(app, public_origin=public_origin)({"type": "http", "path": "/chat", "method": "POST", "scheme": scheme, "headers": headers}, receive, send)
         return outgoing
+
+    async def test_public_origin_passes_when_proxy_replaces_host_and_terminates_tls(self):
+        reached = []
+        async def app(scope, receive, send):
+            reached.append(json.loads((await receive())["body"]))
+            await send({"type": "http.response.start", "status": 200, "headers": []})
+            await send({"type": "http.response.body", "body": b"OK"})
+        sent = await self.request(app, host=b"internal.example:8000", scheme="http")
+        self.assertEqual(sent[0]["status"], 200)
+        self.assertEqual(len(reached), 1)
+
+    async def test_origin_policy_rejects_spoofed_proxy_headers_and_other_origins(self):
+        async def app(*args):
+            self.fail("An unapproved origin must not reach the backend")
+        for origin in (b"https://outside.example", b"http://clinic.example", b"https://clinic.example:444",
+            b"https://clinic.example:0", b"https://clinic.example:65536", b"null", b"",
+            b"https://user@clinic.example", b"https://clinic.example/path", b"https://clinic.example?",
+            b"https://clinic.example#", b"\x00https://clinic.example"):
+            sent = await self.request(app, origin=origin, host=b"outside.example", scheme="http",
+                extra_headers=[(b"x-forwarded-host", b"clinic.example"), (b"x-forwarded-proto", b"https")])
+            self.assertEqual(sent[0]["status"], 403)
+            self.assertEqual(json.loads(sent[1]["body"])["error"]["code"], "origin_rejected")
+        sent = await self.request(app, extra_headers=[(b"origin", b"https://outside.example")])
+        self.assertEqual(sent[0]["status"], 403)
+
+    async def test_proxy_origin_fix_preserves_downstream_authentication_challenge(self):
+        async def app(scope, receive, send):
+            await send({"type": "http.response.start", "status": 401,
+                "headers": [(b"www-authenticate", b"Basic")]})
+            await send({"type": "http.response.body", "body": b"synthetic-private-canary"})
+        sent = await self.request(app, host=b"internal.example:8000", scheme="http")
+        self.assertEqual(sent[0]["status"], 401)
+        self.assertEqual(dict(sent[0]["headers"])[b"www-authenticate"], b"Basic")
+        self.assertNotIn(b"canary", sent[1]["body"])
+
+    async def test_default_https_port_matches_and_invalid_configuration_fails_closed(self):
+        async def app(scope, receive, send):
+            await send({"type": "http.response.start", "status": 200, "headers": []})
+            await send({"type": "http.response.body", "body": b"OK"})
+        sent = await self.request(app, origin=b"https://CLINIC.example:443")
+        self.assertEqual(sent[0]["status"], 200)
+        with self.assertRaises(ValueError):
+            SessionPrivacyMiddleware(app, public_origin="https://clinic.example/path")
 
     async def test_passes_valid_session_context_without_logging_content(self):
         seen = []

@@ -8,6 +8,7 @@ from copy import deepcopy
 from datetime import datetime, timezone
 import hashlib
 import json
+import re
 from pathlib import Path
 import subprocess
 import tarfile
@@ -51,10 +52,14 @@ def snapshot():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--activate", action="store_true", help="Promote the tested image to the existing app")
+    parser.add_argument("--expected-current-image", default=BASE_IMAGE,
+        help="Previously verified immutable live image; activation stops if it changed")
     args = parser.parse_args()
     version = release_version()
     before = snapshot()
-    assert before["image"] == BASE_IMAGE, "The live image changed; inspect it and update the pinned base first"
+    expected_prefix = REGISTRY + ".azurecr.io/api_and_frontend@sha256:"
+    assert args.expected_current_image.startswith(expected_prefix) and re.fullmatch(r"[0-9a-f]{64}", args.expected_current_image[len(expected_prefix):]), "Expected an immutable image in the existing repository"
+    assert before["image"] == args.expected_current_image, "The live image differs from the expected current image; inspect it before deployment"
     assert before["model"] == "jmcgpt-astra", "Unexpected model deployment"
     assert "jmcgpt.jaymedical.com" in before["hosts"], "Unexpected custom-domain target"
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M")
@@ -70,6 +75,7 @@ def main():
             source.extractall(context, filter="data")
         result = az("acr", "build", "--registry", REGISTRY, "--image", tag,
             "--file", str(context / "Dockerfile"), "--build-arg", "JMCGPT_VERSION=" + version,
+            "--build-arg", "JMCGPT_PUBLIC_ORIGIN=https://jmcgpt.jaymedical.com",
             "--no-logs", str(context))
     manifest = az("acr", "repository", "show", "--name", REGISTRY, "--image", tag)
     image = REGISTRY + ".azurecr.io/api_and_frontend@" + manifest["digest"]
@@ -95,7 +101,7 @@ def main():
     assert after["image"] == image, "Image activation was not confirmed"
     for field in ("configuration", "identity", "template", "authentication", "model", "hosts"):
         assert after[field] == before[field], "Unexpected application change: " + field
-    print(json.dumps({"version": version, "activated": True, "image": image, "rollback_image": BASE_IMAGE,
+    print(json.dumps({"version": version, "activated": True, "image": image, "rollback_image": before["image"],
         "configuration_identity_authentication_preserved": True, "healthy_revision": revision_name, "traffic_percent": 100, "url": "https://jmcgpt.jaymedical.com/"}))
 
 

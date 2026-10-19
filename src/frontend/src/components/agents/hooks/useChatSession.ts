@@ -73,8 +73,17 @@ export function useChatSession() {
         })) }),
       });
       if (!response.ok) {
-        const message = response.status === 401 || response.status === 403
-          ? "Your sign-in has expired or access was denied. Sign in again to continue."
+        // A forbidden request is not proof of an expired authentication session.
+        let originRejected = false;
+        if (response.status === 403 && response.headers.get("content-type")?.includes("application/json")) {
+          const failure = await response.json().catch(() => undefined);
+          originRejected = failure?.error?.code === "origin_rejected";
+        }
+        const message = response.status === 401
+          ? "Your sign-in has expired. Sign in again to continue."
+          : response.status === 403 ? originRejected
+            ? "JMCGPT rejected this connection. Reload the page and try again."
+            : "Access to this request was denied. Contact your administrator if this continues."
           : response.status === 429 ? "JMCGPT is busy. Wait briefly, then retry."
           : response.status === 413 || response.status === 422 ? "The request could not be accepted. Shorten the message or start a new chat."
           : "JMCGPT could not complete the request. Please retry.";

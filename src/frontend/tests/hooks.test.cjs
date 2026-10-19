@@ -47,6 +47,26 @@ test('HTTP failures stop the task and retry does not duplicate the question', as
     assert.equal(app.session.task.phase, 'completed');
   } finally { await app.close(); }
 });
+test('authentication failures and origin rejections have distinct safe messages', async () => {
+  for (const [status, body, expected] of [
+    [401, 'private-canary', /sign-in has expired/],
+    [403, { error: { code: 'origin_rejected', message: 'private-canary' } }, /Reload the page/],
+    [403, { error: { message: 'private-canary' } }, /Access to this request was denied/],
+  ]) {
+    const app = setup();
+    global.fetch = async () => new Response(typeof body === 'string' ? body : JSON.stringify(body), {
+      status, headers: { 'content-type': 'application/json' },
+    });
+    await app.mount();
+    try {
+      await act(async () => app.session.onSend('Synthetic question'));
+      assert.match(app.session.error, expected);
+      if (status === 403) assert.doesNotMatch(app.session.error, /expired|Sign in again/);
+      assert.doesNotMatch(app.session.error, /canary/);
+      assert.equal(app.session.isResponding, false);
+    } finally { await app.close(); }
+  }
+});
 test('clearing a session rejects a late response from the old request', async () => {
   const app = setup(); let resolveOld; let calls = 0;
   global.fetch = () => ++calls === 1 ? new Promise(resolve => { resolveOld = resolve; }) : Promise.resolve(reply('New reply'));

@@ -11,18 +11,22 @@ RUN pnpm build
 
 FROM deployed AS checked
 ARG JMCGPT_VERSION
+ARG JMCGPT_PUBLIC_ORIGIN
 COPY --from=frontend_builder /code/api/static/react/ /code/api/static/react/
 COPY release.json /code/jmcgpt-release.json
 COPY privacy.py azure_openai_chat.py /code/api/
 COPY patch_runtime.py patch_page.py /tmp/jmcgpt-session-check/
 COPY tests/ /tmp/jmcgpt-session-check/tests/
-RUN python /tmp/jmcgpt-session-check/patch_runtime.py \
+RUN test -n "${JMCGPT_PUBLIC_ORIGIN}" \
+ && python /tmp/jmcgpt-session-check/patch_runtime.py \
  && python /tmp/jmcgpt-session-check/patch_page.py \
  && python -m py_compile /code/api/main.py /code/api/routes.py /code/api/privacy.py /code/api/azure_openai_chat.py \
  && PYTHONPATH=/code/api:/tmp/jmcgpt-session-check python -m unittest discover -s /tmp/jmcgpt-session-check/tests -v
 
 FROM deployed
 ARG JMCGPT_VERSION
+ARG JMCGPT_PUBLIC_ORIGIN
+ENV JMCGPT_PUBLIC_ORIGIN=${JMCGPT_PUBLIC_ORIGIN}
 LABEL org.opencontainers.image.title="JMCGPT" \
       org.opencontainers.image.version="${JMCGPT_VERSION}"
 COPY --from=checked /code/jmcgpt-release.json /code/jmcgpt-release.json

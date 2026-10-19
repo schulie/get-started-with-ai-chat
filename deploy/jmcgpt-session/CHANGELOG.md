@@ -1,5 +1,15 @@
 # JMCGPT release notes
 
+## 1.1.1
+
+Status: prepared; deployment and signed-in verification are pending.
+
+- Fix valid chat requests rejected when a reverse proxy replaces Host or terminates TLS.
+- Validate browser Origin against an explicitly configured public origin, without trusting forwarded host headers.
+- Preserve authentication challenges and reject unapproved origins, schemes, ports and duplicate Origin headers.
+- Distinguish expired authentication from forbidden requests in the UI.
+- Allow an explicitly verified current image for upgrades while retaining the original pinned build base.
+
 ## 1.1.0
 
 Deployed on 2026-10-19. Deployment health and traffic checks passed.

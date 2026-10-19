@@ -2,7 +2,8 @@
 
 ## 1.1.0
 
-Status: prepared; deployment and live verification are pending.
+Deployed on 2026-10-19. Deployment health and traffic checks passed.
+Signed-in interface verification remains pending.
 
 - Response elapsed-time clock, processing status and retained completion duration.
 - Stop, retry, regenerate, copy and message editing with conversation branching.

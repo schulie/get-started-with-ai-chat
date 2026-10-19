@@ -1,4 +1,16 @@
-# JMCGPT session release
+# JMCGPT 1.1.0
+
+Status: prepared; Azure deployment and live verification are pending.
+
+The application uses semantic versions: MAJOR.MINOR.PATCH. New features increment
+MINOR; fixes increment PATCH; incompatible changes increment MAJOR. This number
+identifies the JMCGPT application, independently of its Azure model version.
+
+`src/frontend/src/release.json` is the release version source. The footer, page
+release marker, asset versions, image label, image tag, revision name and deployment
+result use this value. Packaging rejects a mismatched frontend package version,
+and the image build rejects a mismatched version argument. The deployment script
+supplies that argument automatically. See [CHANGELOG.md](CHANGELOG.md) for scope.
 
 This change keeps the clinic's deployed Azure model and managed identity, adds a
 session-only chat UI, and introduces no database, storage account, model deployment,

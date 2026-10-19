@@ -10,7 +10,9 @@ COPY frontend/src/ ./src/
 RUN pnpm build
 
 FROM deployed AS checked
+ARG JMCGPT_VERSION
 COPY --from=frontend_builder /code/api/static/react/ /code/api/static/react/
+COPY release.json /code/jmcgpt-release.json
 COPY privacy.py azure_openai_chat.py /code/api/
 COPY patch_runtime.py patch_page.py /tmp/jmcgpt-session-check/
 COPY tests/ /tmp/jmcgpt-session-check/tests/
@@ -20,6 +22,10 @@ RUN python /tmp/jmcgpt-session-check/patch_runtime.py \
  && PYTHONPATH=/code/api:/tmp/jmcgpt-session-check python -m unittest discover -s /tmp/jmcgpt-session-check/tests -v
 
 FROM deployed
+ARG JMCGPT_VERSION
+LABEL org.opencontainers.image.title="JMCGPT" \
+      org.opencontainers.image.version="${JMCGPT_VERSION}"
+COPY --from=checked /code/jmcgpt-release.json /code/jmcgpt-release.json
 COPY --from=checked /code/api/main.py /code/api/main.py
 COPY --from=checked /code/api/routes.py /code/api/routes.py
 COPY --from=checked /code/api/privacy.py /code/api/privacy.py

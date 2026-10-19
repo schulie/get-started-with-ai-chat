@@ -7,6 +7,7 @@ import { AgentPreviewChatBot } from "./AgentPreviewChatBot";
 import { MenuButton } from "../core/MenuButton/MenuButton";
 import { ChatDraft } from "./chatbot/types";
 import { useChatSession, SESSION_IDLE_MINUTES } from "./hooks/useChatSession";
+import release from "../../release.json";
 
 import styles from "./AgentPreview.module.css";
 
@@ -165,7 +166,7 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
             />
       </main>
 
-      <p className={styles.sessionPolicy}>Session only. Chat clears after {SESSION_IDLE_MINUTES} minutes of inactivity or when this page is reloaded.</p>
+      <p className={styles.sessionPolicy}>JMCGPT v{release.version} · Session only. Chat clears after {SESSION_IDLE_MINUTES} minutes of inactivity or when this page is reloaded.</p>
 
       {/* Settings Panel */}
       <SettingsPanel

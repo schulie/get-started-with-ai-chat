@@ -13,7 +13,7 @@ import subprocess
 import tarfile
 import tempfile
 import time
-from package import package
+from package import package, release_version
 
 APP = "ca-api-ax6jwjezmywau"
 GROUP = "rg-jmcai"
@@ -52,12 +52,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--activate", action="store_true", help="Promote the tested image to the existing app")
     args = parser.parse_args()
+    version = release_version()
     before = snapshot()
     assert before["image"] == BASE_IMAGE, "The live image changed; inspect it and update the pinned base first"
     assert before["model"] == "jmcgpt-astra", "Unexpected model deployment"
     assert "jmcgpt.jaymedical.com" in before["hosts"], "Unexpected custom-domain target"
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M")
-    tag = "api_and_frontend:jmcgpt-session-" + stamp
+    tag = "api_and_frontend:jmcgpt-" + version + "-" + stamp
     with tempfile.TemporaryDirectory(prefix="jmcgpt-source-") as directory:
         root = Path(directory)
         archive = root / "context.tar.gz"
@@ -68,16 +69,18 @@ def main():
             # All archive entries come from the packaging allowlist above.
             source.extractall(context, filter="data")
         result = az("acr", "build", "--registry", REGISTRY, "--image", tag,
-            "--file", str(context / "Dockerfile"), "--no-logs", str(context))
+            "--file", str(context / "Dockerfile"), "--build-arg", "JMCGPT_VERSION=" + version,
+            "--no-logs", str(context))
     manifest = az("acr", "repository", "show", "--name", REGISTRY, "--image", tag)
     image = REGISTRY + ".azurecr.io/api_and_frontend@" + manifest["digest"]
     if not args.activate:
-        print(json.dumps({"built_image": image, "activated": False, "build_id": result.get("runId") if isinstance(result, dict) else None}))
+        print(json.dumps({"version": version, "built_image": image, "activated": False, "build_id": result.get("runId") if isinstance(result, dict) else None}))
         return
     assert snapshot() == before, "Application changed during build; activation stopped"
+    revision_suffix = "v" + version.replace(".", "-") + "-" + stamp
     az("containerapp", "update", "--name", APP, "--resource-group", GROUP,
-        "--container-name", "main", "--image", image, "--revision-suffix", "session" + stamp)
-    revision_name = APP + "--session" + stamp
+        "--container-name", "main", "--image", image, "--revision-suffix", revision_suffix)
+    revision_name = APP + "--" + revision_suffix
     deadline = time.monotonic() + 300
     while True:
         revision = az("containerapp", "revision", "show", "--name", APP,
@@ -92,7 +95,7 @@ def main():
     assert after["image"] == image, "Image activation was not confirmed"
     for field in ("configuration", "identity", "template", "authentication", "model", "hosts"):
         assert after[field] == before[field], "Unexpected application change: " + field
-    print(json.dumps({"activated": True, "image": image, "rollback_image": BASE_IMAGE,
+    print(json.dumps({"version": version, "activated": True, "image": image, "rollback_image": BASE_IMAGE,
         "configuration_identity_authentication_preserved": True, "healthy_revision": revision_name, "traffic_percent": 100, "url": "https://jmcgpt.jaymedical.com/"}))
 
 

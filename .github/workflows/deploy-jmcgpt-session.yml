@@ -1,0 +1,64 @@
+name: Deploy JMCGPT session release
+on:
+  workflow_dispatch:
+    inputs:
+      activate:
+        description: 'Activate the built image on the existing Container App'
+        type: boolean
+        default: false
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: deploy-jmcgpt
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check deployment configuration
+        shell: bash
+        run: |
+          for name in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing repository variable: $name. Interactive login is disabled."
+              exit 1
+            fi
+          done
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check frontend before activation
+        working-directory: src/frontend
+        run: |
+          npm exec --yes --package=pnpm@10.6.0 -- pnpm install --frozen-lockfile --ignore-scripts
+          npm test
+          npm run build
+      - name: Check backend before activation
+        env:
+          PYTHONPATH: deploy/jmcgpt-session
+        run: |
+          python -m pip install httpx==0.28.1
+          python -m unittest discover -s deploy/jmcgpt-session/tests -v
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Build or activate the pinned overlay
+        env:
+          ACTIVATE: ${{ inputs.activate }}
+        run: |
+          if [ "$ACTIVATE" = "true" ]; then
+            python deploy/jmcgpt-session/deploy.py --activate
+          else
+            python deploy/jmcgpt-session/deploy.py
+          fi

@@ -26,6 +26,8 @@ import supersub from "remark-supersub";
 import { Button } from "@fluentui/react-components";
 
 import { ThinkBlock } from "./ThinkBlock";
+import { mediaTarget } from "./media";
+import { Chart } from "./Chart";
 
 import styles from "./Markdown.module.css";
 
@@ -51,77 +53,24 @@ interface IRehypeNode {
   value?: string;
 }
 
-function safeMediaUrl(raw: string): string | null {
-  try {
-    const url = new URL(raw, window.location.origin);
-    return url.protocol === "https:" || url.protocol === "http:" ? url.href : null;
-  } catch {
-    return null;
-  }
-}
-
 function InlineImage({ src, alt }: { src?: string; alt?: string }) {
-  const url = src ? safeMediaUrl(src) : null;
-  if (!url) return <span>{alt ?? "Image unavailable"}</span>;
-  return (
-    <a href={url} target="_blank" rel="noopener noreferrer">
-      <img src={url} alt={alt ?? ""} className={styles.mediaImage} loading="lazy" />
-    </a>
-  );
+  const target = src ? mediaTarget(src, window.location.origin) : null;
+  if (!target) return <span>{alt ?? "Image unavailable"}</span>;
+  if (!target.canEmbed) return <a href={target.href} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">View external image{alt ? `: ${alt}` : ""}</a>;
+  return <a href={target.href} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">
+    <img src={target.href} alt={alt ?? ""} className={styles.mediaImage} loading="lazy" referrerPolicy="no-referrer" />
+  </a>;
 }
 
-function Hyperlink({
-  node,
-  children,
-  ...linkProps
-}: ClassAttributes<HTMLAnchorElement> &
-  AnchorHTMLAttributes<HTMLAnchorElement> &
-  ExtraProps) {
-  const raw = node?.properties.href?.toString() ?? "";
-  const href = safeMediaUrl(raw);
-  if (!href) return <span>{children}</span>;
-
-  const extension = new URL(href).pathname.toLowerCase();
-  if (/\\.(mp4|webm|ogv)$/.test(extension)) {
-    return (
-      <figure className={styles.mediaFigure}>
-        <video controls preload="metadata" className={styles.mediaPlayer} src={href}>
-          Your browser does not support this video.
-        </video>
-        <figcaption><a href={href} target="_blank" rel="noopener noreferrer">{children}</a></figcaption>
-      </figure>
-    );
-  }
-  if (/\\.(mp3|wav|ogg|m4a|aac)$/.test(extension)) {
-    return (
-      <figure className={styles.mediaFigure}>
-        <audio controls preload="metadata" className={styles.mediaPlayer} src={href}>
-          Your browser does not support this audio.
-        </audio>
-        <figcaption><a href={href} target="_blank" rel="noopener noreferrer">{children}</a></figcaption>
-      </figure>
-    );
-  }
-  if (/\\.pdf$/.test(extension)) {
-    return (
-      <div className={styles.pdfViewer}>
-        <a href={href} target="_blank" rel="noopener noreferrer">{children} (open PDF)</a>
-        <iframe title="PDF preview" src={href} className={styles.pdfFrame} loading="lazy" />
-      </div>
-    );
-  }
-
-  return (
-    <a
-      {...linkProps}
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={styles.link}
-    >
-      {children}
-    </a>
-  );
+function Hyperlink({ node, children, ...props }: ClassAttributes<HTMLAnchorElement> & AnchorHTMLAttributes<HTMLAnchorElement> & ExtraProps) {
+  const target = mediaTarget(node?.properties.href?.toString() ?? "", window.location.origin);
+  if (!target) return <span>{children}</span>;
+  const link = <a {...props} href={target.href} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer" className={styles.link}>{children}</a>;
+  if (!target.canEmbed) return link;
+  if (target.kind === "video") return <figure className={styles.mediaFigure}><video controls preload="none" src={target.href} className={styles.mediaPlayer} /><figcaption>{link}</figcaption></figure>;
+  if (target.kind === "audio") return <figure className={styles.mediaFigure}><audio controls preload="none" src={target.href} className={styles.mediaPlayer} /><figcaption>{link}</figcaption></figure>;
+  if (target.kind === "pdf") return <div className={styles.pdfViewer}>{link}<iframe title="PDF preview" src={target.href} sandbox="" loading="lazy" referrerPolicy="no-referrer" className={styles.pdfFrame} /></div>;
+  return link;
 }
 
 interface ICodeBlockProps
@@ -189,6 +138,7 @@ const CodeBlock = memo<ICodeBlockProps>(
     }
 
     const language = match[1];
+    if (language === "chart") return <Chart source={String(children).replace(/\n$/, "")} />;
     const content = String(children)
       .replace(/\n$/, "")
       .replaceAll("&nbsp;", "");

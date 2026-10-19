@@ -1,17 +1,12 @@
-import { ReactNode, useState, useMemo } from "react";
-import {
-  Body1,
-  Button,
-  Caption1,
-  Title2,
-} from "@fluentui/react-components";
+import { ReactNode, useState } from "react";
+import { Button } from "@fluentui/react-components";
 import { ChatRegular, MoreHorizontalRegular } from "@fluentui/react-icons";
 
-import { AgentIcon } from "./AgentIcon";
 import { SettingsPanel } from "../core/SettingsPanel";
 import { AgentPreviewChatBot } from "./AgentPreviewChatBot";
 import { MenuButton } from "../core/MenuButton/MenuButton";
-import { IChatItem } from "./chatbot/types";
+import { ChatDraft } from "./chatbot/types";
+import { useChatSession, SESSION_IDLE_MINUTES } from "./hooks/useChatSession";
 
 import styles from "./AgentPreview.module.css";
 
@@ -41,257 +36,21 @@ interface IAgentPreviewProps {
   agentDetails: IAgent;
 }
 
+const starterPrompts = [
+  { title: "Clinical reference", detail: "Guidance, terminology, and workflows", text: "Help me review a clinical reference question. Explain the relevant evidence, identify uncertainty, and provide sources I can verify. I will provide the question and context." },
+  { title: "Billing & coding", detail: "Documentation, codes, and claims", text: "Help me review a billing or coding question. Identify the service date, payer, and documentation needed, explain the rationale, and flag details to verify before a claim is submitted." },
+  { title: "Patient communication", detail: "Clear explanations and messages", text: "Help me draft a clear patient education handout or message. I will provide the topic, intended audience, and key points." },
+  { title: "Clinic operations", detail: "Policies, checklists, and procedures", text: "Help me create a practical clinic workflow, staff checklist, or procedure. I will describe the task, the staff involved, and the requirements." },
+];
 
 export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
   const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
-  const [messageList, setMessageList] = useState<IChatItem[]>([]);
-  const [isResponding, setIsResponding] = useState(false);
+  const session = useChatSession();
+  const { messageList } = session;
+  const [draft, setDraft] = useState<ChatDraft>();
+  const handleSettingsPanelOpenChange = (isOpen: boolean) => setIsSettingsPanelOpen(isOpen);
+  const newThread = () => { session.clearSession(); setDraft(undefined); };
 
-
-
-
-  const handleSettingsPanelOpenChange = (isOpen: boolean) => {
-    setIsSettingsPanelOpen(isOpen);
-  };
-
-  const newThread = () => {
-    setMessageList([]);
-    deleteAllCookies();
-  };
-
-  const deleteAllCookies = (): void => {
-    document.cookie.split(";").forEach((cookieStr: string) => {
-      const trimmedCookieStr = cookieStr.trim();
-      const eqPos = trimmedCookieStr.indexOf("=");
-      const name =
-        eqPos > -1 ? trimmedCookieStr.substring(0, eqPos) : trimmedCookieStr;
-      document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
-    });
-  };
-
-  const onSend = async (message: string) => {
-    const userMessage: IChatItem = {
-      id: `user-${Date.now()}`,
-      content: message,
-      role: "user",
-      more: { time: new Date().toISOString() },
-    };
-
-    setMessageList((prev) => [...prev, userMessage]);
-
-    try {
-      const messages = [...messageList, userMessage].map((item) => ({
-        role: item.role,
-        content: item.content,
-      }));
-      const postData = {messages};
-      // IMPORTANT: Add credentials: 'include' if server cookies are critical
-      // and if your backend is on the same domain or properly configured for cross-site cookies.
-
-      setIsResponding(true);      
-      const response = await fetch("/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(postData),
-        credentials: "include", // <--- allow cookies to be included
-      });
-
-      // Log out the response status in case there’s an error
-      console.log(
-        "[ChatClient] Response status:",
-        response.status,
-        response.statusText
-      );
-
-      // If server returned e.g. 400 or 500, that’s not an exception, but we can check manually:
-      if (!response.ok) {
-        console.error(
-          "[ChatClient] The server has returned an error:",
-          response.status,
-          response.statusText
-        );
-        return;
-      }
-
-      if (!response.body) {
-        throw new Error(
-          "ReadableStream not supported or response.body is null"
-        );
-      }
-
-      console.log("[ChatClient] Starting to handle streaming response...");
-      handleMessages(response.body);
-    } catch (error: any) {
-      setIsResponding(false);
-      if (error.name === "AbortError") {
-        console.log("[ChatClient] Fetch request aborted by user.");
-      } else {
-        console.error("[ChatClient] Fetch failed:", error);
-      }
-    }
-  };
-
-  const handleMessages = (
-    stream: ReadableStream<Uint8Array<ArrayBufferLike>>
-  ) => {
-    let chatItem: IChatItem | null = null;
-    let accumulatedContent = "";
-    let isStreaming = true;
-    let buffer = "";
-
-    // Create a reader for the SSE stream
-    const reader = stream.getReader();
-    const decoder = new TextDecoder();
-    
-    const readStream = async () => {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-          console.log("[ChatClient] SSE stream ended by server.");
-          break;
-        }
-
-        // Convert the incoming Uint8Array to text
-        const textChunk = decoder.decode(value, { stream: true });
-        console.log("[ChatClient] Raw chunk from stream:", textChunk);
-
-        buffer += textChunk;
-        let boundary = buffer.indexOf("\n");
-
-        // We process line-by-line.
-        while (boundary !== -1) {
-          const chunk = buffer.slice(0, boundary).trim();
-          buffer = buffer.slice(boundary + 1);
-
-          console.log("[ChatClient] SSE line:", chunk); // log each line we extract
-
-          if (chunk.startsWith("data: ")) {
-            // Attempt to parse JSON
-            const jsonStr = chunk.slice(6);
-            let data;
-            try {
-              data = JSON.parse(jsonStr);
-            } catch (err) {
-              console.error("[ChatClient] Failed to parse JSON:", jsonStr, err);
-              boundary = buffer.indexOf("\n");
-              continue;
-            }
-
-            console.log("[ChatClient] Parsed SSE event:", data);
-
-            if (data.error) {
-              if (!chatItem) {
-                chatItem = createAssistantMessageDiv();
-                console.log(
-                  "[ChatClient] Created new messageDiv for assistant."
-                );
-              }
-
-              setIsResponding(false);
-              appendAssistantMessage(
-                chatItem,
-                data.error.message || "An error occurred.",
-                false
-              );
-              return;
-            }
-
-            // Check the data type to decide how to update the UI
-            if (data.type === "stream_end") {
-              // End of the stream
-              console.log("[ChatClient] Stream end marker received.");
-              setIsResponding(false);
-              
-              break;
-            } 
-            
-            else {
-              if (!chatItem) {
-                chatItem = createAssistantMessageDiv();
-                console.log(
-                  "[ChatClient] Created new messageDiv for assistant."
-                );
-              }
-
-              if (data.type === "completed_message") {
-                clearAssistantMessage(chatItem);
-                accumulatedContent = data.content;
-                isStreaming = false;
-                console.log(
-                  "[ChatClient] Received completed message:",
-                  accumulatedContent
-                );
-
-                setIsResponding(false);
-              } else {
-                accumulatedContent += data.content;
-                console.log(
-                  "[ChatClient] Received streaming chunk:",
-                  data.content
-                );
-              }
-
-            //   // Update the UI with the accumulated content
-              appendAssistantMessage(chatItem, accumulatedContent, isStreaming);
-            }
-          }
-
-          boundary = buffer.indexOf("\n");
-        }
-      }
-    };
-
-    // Catch errors from the stream reading process
-    readStream().catch((error) => {
-      console.error("[ChatClient] Stream reading failed:", error);
-    });
-  };
-
-  const createAssistantMessageDiv: () => IChatItem = () => {
-    var item = { id: crypto.randomUUID(), content: "", isAnswer: true, more: { time: new Date().toISOString() } };
-    setMessageList((prev) => [...prev, item]);
-    return item;
-  };
-  const appendAssistantMessage = (
-    chatItem: IChatItem,
-    accumulatedContent: string,
-    isStreaming: boolean,
-  ) => {
-    try {
-      // Preprocess content to convert citations to links using the updated annotation data
-
-      if (!chatItem) {
-        throw new Error("Message content div not found in the template.");
-      }
-
-      // Set the innerHTML of the message text div to the HTML content
-      chatItem.content = accumulatedContent;
-      setMessageList((prev) => {
-        return [...prev.slice(0, -1), { ...chatItem }];
-      });
-
-      // Use requestAnimationFrame to ensure the DOM has updated before scrolling
-      // Only scroll if stop streaming
-      if (!isStreaming) {
-        requestAnimationFrame(() => {
-          const lastChild = document.getElementById(`msg-${chatItem.id}`);
-          if (lastChild) {
-            lastChild.scrollIntoView({ behavior: "smooth", block: "end" });
-          }
-       });
-      }
-    } catch (error) {
-      console.error("Error in appendAssistantMessage:", error);
-    }
-  };
-
-  const clearAssistantMessage = (chatItem: IChatItem) => {
-    if (chatItem) {
-      chatItem.content = "";
-    }
-  };
   const menuItems = [
     {
       key: "settings",
@@ -327,38 +86,32 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
       ),
     },
     {
-      key: "feedback",
-      children: "Send Feedback",
+      key: "signout",
+      children: "Sign out",
       onClick: () => {
-        // Handle send feedback click
-        alert("Thank you for your feedback!");
+        session.clearSession();
+        window.location.assign("/.auth/logout?post_logout_redirect_uri=/");
       },
     },
   ];
 
-  const chatContext = useMemo(
-    () => ({
-      messageList,
-      isResponding,
-      onSend,
-    }),
-    [messageList, isResponding]
-  );
+  const chatContext = {
+    ...session,
+    onSend: (text: string, editingId?: string) => { session.onSend(text, editingId); setDraft(undefined); },
+    onStop: session.stop,
+    onRetry: session.retry,
+    onRegenerate: session.regenerate,
+  };
 
   return (
     <div className={styles.container}>
-      <div className={styles.topBar}>
+      <header className={styles.topBar}>
         <div className={styles.leftSection}>
-          {messageList.length > 0 && (
-            <>
-              <AgentIcon
-                alt=""
-                iconClassName={styles.agentIcon}
-                iconName={agentDetails.metadata?.logo}
-              />
-              <Body1 className={styles.agentName}>{agentDetails.name}</Body1>
-            </>
-          )}
+          <span className={styles.brandMark} aria-hidden="true">J+</span>
+          <div className={styles.brandText}>
+            <strong>JMCGPT</strong>
+            <span>Jay Medical Clinic</span>
+          </div>
         </div>
         <div className={styles.rightSection}>
           {" "}
@@ -379,26 +132,40 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
             }}
           />
         </div>
-      </div>
-      <div className={styles.content}>          <>
+      </header>
+      <main className={styles.content} data-empty={messageList.length === 0}>
             {messageList.length === 0 && (
               <div className={styles.emptyChatContainer}>
-                <AgentIcon
-                  alt=""
-                  iconClassName={styles.emptyStateAgentIcon}
-                  iconName={agentDetails.metadata?.logo}
-                />
-                <Caption1 className={styles.agentName}>
-                  {agentDetails.name}
-                </Caption1>
-                <Title2>How can I help you today?</Title2>
+                <span className={styles.eyebrow}>JAY MEDICAL CLINIC STAFF ASSISTANT</span>
+                <h1 className={styles.welcomeTitle}>Clinical, billing,<br />and practice support.</h1>
+                <p className={styles.welcomeDescription}>A workspace for clinical reference, coding and claims, patient communication, and day-to-day clinic operations.</p>
+                <div className={styles.starterGrid} aria-label="Suggested prompts">
+                  {starterPrompts.map((prompt, index) => (
+                    <button
+                      type="button"
+                      className={styles.starterCard}
+                      key={prompt.title}
+                      onClick={() => setDraft((previous) => ({ text: prompt.text, id: (previous?.id ?? 0) + 1 }))}
+                    >
+                      <span className={styles.starterIndex} aria-hidden="true">0{index + 1}</span>
+                      <strong>{prompt.title}</strong>
+                      <span className={styles.starterDescription}>{prompt.detail}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
+            {session.notice && <p className={styles.sessionNotice} role="status">{session.notice}</p>}
             <AgentPreviewChatBot
+              key={session.sessionVersion}
               agentName={agentDetails.name}
               agentLogo={agentDetails.metadata?.logo}
-              chatContext={chatContext}            />          </>
-      </div>
+              chatContext={chatContext}
+              draft={draft}
+            />
+      </main>
+
+      <p className={styles.sessionPolicy}>Session only. Chat clears after {SESSION_IDLE_MINUTES} minutes of inactivity or when this page is reloaded.</p>
 
       {/* Settings Panel */}
       <SettingsPanel

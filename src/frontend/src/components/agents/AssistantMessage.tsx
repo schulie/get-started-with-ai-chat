@@ -5,7 +5,9 @@ import {
   ReferenceListV2 as ReferenceList,
   ReferenceOverflowButton,
 } from "@fluentui-copilot/react-reference";
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
+import copy from "copy-to-clipboard";
+import { formatDuration } from "./chatbot/session";
 
 import { Markdown } from "../core/Markdown";
 import { UsageInfo } from "./UsageInfo";
@@ -23,7 +25,9 @@ export function AssistantMessage({
   agentName,
   showUsageInfo,
   onDelete,
+  onRegenerate,
 }: IAssistantMessageProps): React.JSX.Element {
+  const [copied, setCopied] = useState(false);
   const hasAnnotations = message.annotations && message.annotations.length > 0;
   const references = hasAnnotations
     ? message.annotations?.map((annotation, index) => (
@@ -38,7 +42,13 @@ export function AssistantMessage({
       id={"msg-" + message.id}
       key={message.id}
       actions={
-        <span>
+        <span className={styles.messageActions}>
+          {message.content && <Button appearance="subtle" onClick={() => {
+            setCopied(copy(message.content));
+            window.setTimeout(() => setCopied(false), 2000);
+          }}>{copied ? "Copied" : "Copy"}</Button>}
+          {onRegenerate && <Button appearance="subtle" onClick={onRegenerate}>Regenerate</Button>}
+
           {onDelete && message.usageInfo && (
             <Button
               appearance="subtle"
@@ -55,6 +65,9 @@ export function AssistantMessage({
       disclaimer={<span>AI-generated content may be incorrect</span>}
       footnote={
         <>
+          {message.duration !== undefined && <span className={styles.messageDuration}>
+            {message.status === "stopped" ? "Stopped" : message.status === "failed" ? "Interrupted" : "Completed"} in {formatDuration(message.duration)}
+          </span>}
           {hasAnnotations && (
             <ReferenceList
               maxVisibleReferences={3}

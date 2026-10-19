@@ -1,0 +1,16 @@
+"""Version built assets without replacing the deployed clinic page template."""
+from pathlib import Path
+import re
+
+root = Path("/code/api")
+page = root / "templates/index.html"
+text = page.read_text()
+assert 'data-jmcgpt-release="20261018-clinic"' in text, "Unexpected deployed page"
+text = text.replace('data-jmcgpt-release="20261018-clinic"', 'data-jmcgpt-release="20261019-session"', 1)
+text, count = re.subn(r"\?v=jmcgpt-ui-20261018-clinic", "?v=jmcgpt-session-20261019", text)
+assert count == 2, "Expected both original versioned asset references"
+script = (root / "static/react/assets/main-react-app.js").read_text()
+for marker in ["Session only", "Working", "Regenerate", "Attach text file", "Download SVG"]:
+    assert marker in script, "Expected frontend capability missing: " + marker
+page.write_text(text)
+print("JMCGPT session frontend version verified")

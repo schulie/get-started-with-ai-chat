@@ -2,9 +2,13 @@
   display: flex;
   flex-direction: column;
   padding: 16px;
-  margin-bottom: 16px;
+  margin-bottom: 0;
+  align-self: flex-end;
+  max-width: 85%;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
   background-color: var(--colorNeutralBackground2);
-  border-radius: 8px;
+  border-radius: 16px;
 }
 
 .userMessageHeader {

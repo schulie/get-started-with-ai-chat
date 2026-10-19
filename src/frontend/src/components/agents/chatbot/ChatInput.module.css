@@ -1,25 +1,11 @@
-.chatInputContainer {
-  background-color: var(--colorNeutralBackground3);
-  border-top: 1px solid var(--colorNeutralStroke1);
-}
-
-/* Customize the Fluent ChatInput container */
-.chatInputContainer > div {
-  padding: 12px;
-  border: none;
-  background-color: var(--colorNeutralBackground3);
-}
-
-/* Custom textarea height for the Fluent ChatInput */
-.chatInputContainer :global(.fui-ChatInput__textarea) {
-  max-height: 150px;
-  font-size: 14px;
-  line-height: 20px;
-}
-
-/* Customize the send button in Fluent ChatInput */
-.chatInputContainer :global(.fui-ChatInput__send-button) {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+.composer { width: 100%; min-width: 0; }
+.composer textarea { display: block; box-sizing: border-box; width: 100%; min-height: 64px; max-height: 220px; padding: 10px 12px; border: 0; outline: none; resize: none; background: transparent; color: var(--colorNeutralForeground1); font: inherit; font-size: 16px; line-height: 1.6; }
+.controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 8px; }
+.controls button { min-height: 36px; padding: 7px 15px; border: 1px solid transparent; border-radius: 20px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.controls button:focus-visible { outline: 3px solid #368c80; outline-offset: 3px; }
+.controls button:disabled { opacity: .45; cursor: default; }
+.attach { color: var(--colorNeutralForeground2); background: transparent; }
+.attach:hover { background: var(--colorNeutralBackground3); }
+.send { color: white; background: #16685f; }
+.stop { color: var(--colorNeutralForeground1); background: var(--colorNeutralBackground3); border-color: var(--colorNeutralStroke1) !important; }
+.fileError { color: var(--colorPaletteRedForeground1); margin: 4px 12px; font-size: 12px; }

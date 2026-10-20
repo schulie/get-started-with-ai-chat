@@ -120,7 +120,9 @@
 .markdown tr:nth-child(even) {
   background-color: var(--colorNeutralBackground2);
 }
-.markdown { overflow-wrap: anywhere; min-width: 0; }
+.markdown { overflow-wrap: anywhere; min-width: 0; max-width: 100%; }
+.codeBlock, .codeHeader, .chart { min-width: 0; max-width: 100%; }
+.codeHeader { gap: 8px; flex-wrap: wrap; }
 .markdown pre { max-width: 100%; overflow-x: auto; }
 .markdown table { display: block; max-width: 100%; overflow-x: auto; }
 .mediaImage { display: block; max-width: 100%; max-height: 560px; height: auto; object-fit: contain; border-radius: 10px; }
@@ -136,3 +138,9 @@
 .chartActions button { cursor: pointer; border: 1px solid var(--colorNeutralStroke1); border-radius: 6px; padding: 4px 9px; font: inherit; color: var(--colorNeutralForeground1); background: var(--colorNeutralBackground2); }
 .chartActions summary { cursor: pointer; padding-block: 4px; }
 .chartError { white-space: pre-wrap; font-size: 12px; }
+@media (max-width: 600px), (max-height: 480px) and (pointer: coarse) {
+  .markdown ul, .markdown ol { padding-left: 1.5em; }
+  .codeHeader { padding: 4px 8px; }
+  .copyButton, .chartActions button, .chartActions summary { min-height: 44px; }
+  .pdfFrame { min-height: 240px; }
+}

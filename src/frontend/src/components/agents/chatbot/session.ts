@@ -6,6 +6,7 @@ export interface ChatTask {
   phase: TaskPhase;
   startedAt: number;
   durationMs?: number;
+  activity?: "searching" | "reading" | "preparing";
 }
 
 export class ChatStreamError extends Error {

@@ -70,6 +70,7 @@ export function useChatSession() {
       for (let index = 0; index < history.length; index += 1) {
         const item = history[index];
         if (item.webQuery) {
+          setTask({ id, phase: "working", startedAt, activity: "searching" });
           const parts = await prepareWebSearch(item.webQuery, controller.signal);
           if (!isCurrent()) return;
           history = history.map((message, position) => position === index
@@ -78,6 +79,7 @@ export function useChatSession() {
           setMessages([...history, messages.current.find(message => message.id === id) ?? assistant]);
         }
         if (item.webUrls?.length) {
+          setTask({ id, phase: "working", startedAt, activity: "reading" });
           const parts = await prepareWebPages(item.webUrls, controller.signal);
           if (!isCurrent()) return;
           history = history.map((message, position) => position === index
@@ -86,6 +88,7 @@ export function useChatSession() {
           setMessages([...history, messages.current.find(message => message.id === id) ?? assistant]);
         }
         if (item.uploads?.length) {
+          setTask({ id, phase: "working", startedAt, activity: "preparing" });
           const attachments = await prepareUploads(item.uploads, controller.signal);
           if (!isCurrent()) return;
           history = history.map((message, position) => position === index
@@ -95,6 +98,7 @@ export function useChatSession() {
         }
       }
       if (!isCurrent()) return;
+      setTask({ id, phase: "working", startedAt });
       const response = await fetch("/chat", {
         method: "POST", credentials: "include", cache: "no-store",
         headers: { "Content-Type": "application/json", "Accept": "text/event-stream", "X-JMCGPT-Data-Classification": "non-sensitive" },

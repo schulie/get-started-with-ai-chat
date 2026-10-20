@@ -1,12 +1,20 @@
 # Current JMCGPT release
 
-Release candidate: **2.0.0-beta.5**, October 19, 2026. See the deployment record in this directory for verified live revision and immutable image after rollout.
+Source release: **2.0.0**, October 20, 2026.
 
-The active code is the bounded stateless API and React frontend, built using `src/Dockerfile.secure`. It includes the prior 403 origin fix, compact clinic branding, multimodal uploads, image generation/editing, explicit web search/page reading, short-video analysis, microphone dictation and device read-aloud. Video generation requires a supported provider connection; it is disabled. Microphone and local voice availability depend on the staff member's device/browser permission and installed voices.
+The interface uses the stable JMCGPT name and version. Beta/test branding, the composer warning banner and the repeated answer-review footer have been removed. A compact “Public information only” label is shown when the server reports that data mode. The existing API value `non_sensitive_beta` is retained for configuration compatibility; this interface release does not change deployment data permissions or Azure provider-retention settings.
 
-46 backend and 29 frontend tests passed. The frontend TypeScript/Vite production build passed. Speech tests simulate microphone and local synthesis APIs and verify cleanup/late-response handling. The new API preserves authenticated tenant/domain access, exact origin checks, no-store responses, fixed audit metadata and bounded concurrency/rate/request size. No hardware microphone recording was captured during automated checks.
+Phones use a compact header, two toolbar rows with 44-pixel tap targets, a shorter welcome area and a compact session footer. The conversation and composer scroll separately, long tables and code scroll within their containers, and settings fit narrow screens. Safe-area padding supports devices with display cutouts. The app follows VisualViewport height changes at normal zoom to accommodate an on-screen keyboard, with dynamic-viewport CSS as the fallback. Short viewports hide welcome suggestions and tool hints and reduce the message box height. Touch keyboard Return inserts a line; use Send to submit. Desktop Enter still sends, and Shift+Enter inserts a line.
 
-All beta inference is limited to synthetic/public/non-sensitive content. Provider zero-content-retention approval is pending. Do not describe this release as HIPAA certified or approved for PHI. Read `JMCGPT-SECURE-RELEASE.md` for production gates. The earlier candidate-status wording in that document describes the original secure candidate, not the live beta.
+Auto mode looks up eligible current-information questions using only the current question. A standalone public HTTPS URL without a query or fragment selects page reading. Chat skips lookup, and Web forces an explicit lookup. Files, contextual follow-ups, transformations, opt-out instructions, sensitive-data cues and long/multiline text suppress automatic routing. These are convenience routing rules. Chat, Stop, Retry, session clearing and cached-source reuse retain their existing request paths.
+
+Validation: **44 frontend tests pass**, and TypeScript plus the Vite production build pass. New checks cover keyboard-related visible-height changes, resize events, listener cleanup, pinch-zoom fallback and touch Enter behavior. Existing chat, upload, speech and automatic-lookup checks also pass. The backend is unchanged and was not rerun. No dependencies were added. GitHub Actions and live provider calls were not used.
+
+Visual phone/browser QA remains to be completed on the deployment. This workspace's preview browser could not reach its local development server and does not permit local file previews, so no viewport screenshot or device/keyboard verification is claimed. Check 320-pixel and 390-pixel phones, a short keyboard-open viewport, a tablet and desktop. Exercise all tool modes, long answers with code/tables, attachments, dictation controls, Settings and New Chat.
+
+Deployment evidence: the user-supplied browser screenshot shows **2.0.0-beta.6** served at `https://jmcgpt.jaymedical.com`. This session has not deployed 2.0.0 or independently checked Azure revision health. The older beta.5 deployment record remains available in `JMCGPT-beta5-deployment.json` as historical evidence.
+
+The active application is the stateless API and React frontend built with `src/Dockerfile.secure`. Deploy 2.0.0 from the updated source using the Azure CLI procedure below. Historical feature and configuration records remain in `JMCGPT-BETA.md`, `JMCGPT-VIDEO-BETA.md` and `JMCGPT-SPEECH-BETA.md`; provider/data-mode requirements are documented in `JMCGPT-SECURE-RELEASE.md`.
 
 ## Azure CLI release procedure
 

@@ -1,36 +1,42 @@
 .composer { position: relative; width: 100%; min-width: 0; border-radius: 12px; transition: background .15s; }
 .composer[data-dragging="true"] { outline: 2px dashed #16685f; outline-offset: 4px; background: #16685f0a; }
-.betaNotice { display: flex; flex-wrap: wrap; gap: 5px 14px; align-items: center; margin: 0 10px 4px; color: var(--colorNeutralForeground2); font-size: 11px; line-height: 19px; }
-.betaNotice strong { font-weight: 600; }
-.retention { color: var(--colorNeutralForeground3); }
-.betaNotice label { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
-.betaNotice input { accent-color: #16685f; margin: 0; width: 13px; height: 13px; }
-.composer textarea { display: block; box-sizing: border-box; width: 100%; min-height: 72px; max-height: 180px; padding: 12px 10px 8px; border: 0; outline: none; resize: none; background: transparent; color: var(--colorNeutralForeground1); font: inherit; font-size: 16px; line-height: 1.5; }
+.dataMode { margin: 0 10px 2px; color: var(--colorNeutralForeground3); font-size: 11px; line-height: 17px; }
+.composer textarea { display: block; box-sizing: border-box; width: 100%; min-height: var(--jmc-input-min-height, 72px); max-height: var(--jmc-input-max-height, 180px); padding: 12px 10px 8px; border: 0; outline: none; resize: none; background: transparent; color: var(--colorNeutralForeground1); font: inherit; font-size: 16px; line-height: 1.5; }
 .composer textarea::placeholder { color: var(--colorNeutralForeground3); }
-.controls { display: flex; align-items: center; gap: 8px; padding: 5px 6px 2px; }
-.controls { flex-wrap: wrap; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 5px 6px 2px; min-width: 0; }
 .controls button { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: 6px 13px; border: 1px solid transparent; border-radius: 18px; font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; }
-.controls button:focus-visible { outline: 2px solid #368c80; outline-offset: 3px; }
+.controls button:focus-visible { outline: 2px solid #368c80; outline-offset: 2px; }
 .controls button:disabled { opacity: .4; cursor: default; }
-.tools { display: inline-flex; align-items: center; gap: 2px; flex: 1; }
+.tools { display: inline-flex; align-items: center; gap: 2px; flex: 1; min-width: 0; }
 .tools button { color: var(--colorNeutralForeground2); background: transparent; }
 .tools button:hover, .attach:hover { background: var(--colorNeutralBackground3); }
 .tools button[aria-pressed="true"] { background: #16685f13; color: var(--colorNeutralForeground1); border-color: #16685f25; }
+.dictation { min-width: 0; font-size: 12px; overflow-wrap: anywhere; }
+.dictation > span { max-width: 100%; }
 .controls .attach { width: 34px; padding: 0; font-size: 25px; font-weight: 300; color: var(--colorNeutralForeground2); background: transparent; flex-shrink: 0; }
 .controls .send { width: 36px; height: 36px; padding: 0; border-radius: 50%; color: white; background: #16685f; font-size: 24px; font-weight: 500; flex-shrink: 0; }
 .controls .send:hover:not(:disabled) { background: #10534c; }
 .stop { color: var(--colorNeutralForeground1); background: var(--colorNeutralBackground3); border-color: var(--colorNeutralStroke1) !important; }
-.fileError, .toolHint, .connection { margin: 4px 10px 7px; font-size: 11px; line-height: 17px; color: var(--colorNeutralForeground3); }
+.fileError, .toolHint, .connection { margin: 4px 10px 7px; font-size: 11px; line-height: 17px; color: var(--colorNeutralForeground3); overflow-wrap: anywhere; }
+.toolHint { display: var(--jmc-tool-hint-display, block); }
 .fileError { color: var(--colorPaletteRedForeground1); font-size: 12px; }
 .files { list-style: none; padding: 0 10px; margin: 4px 0 8px; display: flex; flex-wrap: wrap; gap: 6px; }
-.files li { display: flex; align-items: center; gap: 8px; max-width: 100%; border: 1px solid var(--colorNeutralStroke2); border-radius: 9px; padding: 5px 8px; background: var(--colorNeutralBackground2); font-size: 12px; }
-.files span { overflow-wrap: anywhere; }
-.files button { background: none; border: 0; color: var(--colorNeutralForeground2); cursor: pointer; font-size: 18px; line-height: 20px; padding: 0 3px; }
+.files li { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; border: 1px solid var(--colorNeutralStroke2); border-radius: 9px; padding: 5px 8px; background: var(--colorNeutralBackground2); font-size: 12px; }
+.files span { min-width: 0; overflow-wrap: anywhere; }
+.files button { flex-shrink: 0; background: none; border: 0; color: var(--colorNeutralForeground2); cursor: pointer; font-size: 18px; line-height: 20px; padding: 0 3px; }
 .dropHint { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; border-radius: 12px; background: var(--colorNeutralBackground1); color: #16685f; font-size: 18px; font-weight: 600; pointer-events: none; opacity: .95; }
-@media (max-width: 500px) {
-  .controls { gap: 4px; padding-inline: 0; }
-  .controls button { padding-inline: 10px; }
-  .betaNotice { margin-inline: 8px; gap: 3px 8px; font-size: 10px; }
-  .retention { display: block; }
+@media (max-width: 600px), (max-height: 480px) and (pointer: coarse) {
+  .composer textarea { min-height: var(--jmc-input-min-height, 56px); max-height: var(--jmc-input-max-height, 120px); padding: 8px; }
+  .dataMode, .toolHint, .connection, .fileError { margin-inline: 8px; }
+  .controls { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 4px; padding: 4px 0 0; }
+  .controls button { min-width: 44px; min-height: 44px; padding: 6px 8px; touch-action: manipulation; }
+  .tools { grid-column: 1 / -1; grid-row: 1; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; padding-bottom: 4px; border-bottom: 1px solid var(--colorNeutralStroke2); }
+  .tools button { min-width: 0; width: 100%; padding-inline: 2px; }
+  .controls .attach { grid-column: 1; grid-row: 2; width: 44px; height: 44px; }
+  .dictation { grid-column: 2; grid-row: 2; }
+  .controls .send, .controls .stop { grid-column: 3; grid-row: 2; width: 44px; height: 44px; padding: 0; }
+  .files { padding-inline: 8px; }
+  .files li { padding: 0 0 0 8px; }
+  .files button { min-width: 44px; min-height: 44px; }
 }
 @media (prefers-reduced-motion: reduce) { .composer { transition: none; } }

@@ -1,7 +1,7 @@
 {
   "name": "frontend",
-  "version": "2.0.0-beta.5",
-  "description": "React frontend for Azure AI Agents Demo",
+  "version": "2.0.0",
+  "description": "JMCGPT staff assistant for Jay Medical Clinic",
   "main": "index.js",
   "scripts": {
     "dev": "vite",

@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const React = require('react');
 const { create, act } = require('react-test-renderer');
 const { useChatSession } = require('../src/components/agents/hooks/useChatSession.ts');
+const { automaticLookup } = require('../src/components/agents/chatbot/automaticLookup.ts');
 global.IS_REACT_ACT_ENVIRONMENT = true;
 
 function setup() {
@@ -175,5 +176,69 @@ test('search uses only its explicit public query even when a document is attache
     assert.equal(calls[2].body.messages[0].attachments.length, 2);
     await act(async () => app.session.onSend('Follow up'));
     assert.equal(calls.filter(call => call.url === '/api/search').length, 1);
+  } finally { await app.close(); }
+});
+
+test('an automatic lookup excludes earlier text and documents from the search request', async () => {
+  const app = setup(); const calls = [];
+  global.fetch = async (url, options) => {
+    calls.push({url, body: JSON.parse(options.body)});
+    return url === '/api/attachments' ? new Response(JSON.stringify({parts:[{type:'text',text:'Document canary'}]}))
+      : url === '/api/search' ? new Response(JSON.stringify({parts:[{type:'text',text:'Public facts https://example.com/'}]})) : reply();
+  };
+  await app.mount();
+  try {
+    await act(async () => app.session.onSend('Earlier content canary', undefined, {files:[new File(['Synthetic'], 'example.txt')]}));
+    const query = 'What is the weather in Jay, Florida today?';
+    await act(async () => app.session.onSend(query, undefined, automaticLookup(query)));
+    const searches = calls.filter(call => call.url === '/api/search');
+    assert.deepEqual(searches, [{url:'/api/search',body:{query}}]);
+    const latest = calls.at(-1).body.messages;
+    assert.equal(latest[0].attachments[0].text, 'Document canary');
+    assert.match(latest.at(-1).attachments[0].text, /Public facts/);
+    await act(async () => app.session.regenerate());
+    assert.equal(calls.filter(call => call.url === '/api/search').length, 1);
+  } finally { await app.close(); }
+});
+
+test('clearing an in-progress search prevents a late result from starting model inference', async () => {
+  const app = setup(); const calls = []; let resolveSearch, searchSignal;
+  global.fetch = (url, options) => {
+    calls.push(url); searchSignal = options.signal;
+    return new Promise(resolve => { resolveSearch = resolve; });
+  };
+  await app.mount();
+  try {
+    const query = 'Latest news from NASA';
+    await act(async () => app.session.onSend(query, undefined, automaticLookup(query)));
+    assert.equal(app.session.task.activity, 'searching');
+    await act(async () => app.session.clearSession());
+    assert.equal(searchSignal.aborted, true);
+    await act(async () => resolveSearch(new Response(JSON.stringify({parts:[{type:'text',text:'Late source'}]}))));
+    assert.deepEqual(calls, ['/api/search']);
+    assert.equal(app.session.messageList.length, 0);
+    assert.equal(app.session.task, undefined);
+  } finally { await app.close(); }
+});
+
+test('failed lookup does not silently answer without sources; Retry repeats the isolated query', async () => {
+  const app = setup(); const calls = []; let searches = 0;
+  global.fetch = async (url, options) => {
+    calls.push({url,body:JSON.parse(options.body)});
+    return url !== '/api/search' ? reply() : ++searches === 1 ? new Response('Provider canary', {status:503})
+      : new Response(JSON.stringify({parts:[{type:'text',text:'Public facts https://example.com/'}]}));
+  };
+  await app.mount();
+  try {
+    const query = 'Latest news from NASA';
+    await act(async () => app.session.onSend(query, undefined, automaticLookup(query)));
+    assert.equal(app.session.task.phase, 'failed');
+    assert.equal(app.session.canRetry, true);
+    assert.doesNotMatch(app.session.error, /canary/);
+    assert.deepEqual(calls, [{url:'/api/search',body:{query}}]);
+    await act(async () => app.session.retry());
+    assert.deepEqual(calls.map(call => call.url), ['/api/search','/api/search','/chat']);
+    assert.equal(app.session.task.phase, 'completed');
+    assert.equal(app.session.task.activity, undefined);
   } finally { await app.close(); }
 });

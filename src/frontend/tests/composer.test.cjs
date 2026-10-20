@@ -64,7 +64,7 @@ test('attachment content is not transmitted before Send', async () => {
   } finally { await act(async () => root.unmount()); }
 });
 
-test('beta keeps its notice without a checkbox and attaches only an explicit URL', async () => {
+test('public mode has a compact data label without beta branding and attaches only an explicit URL', async () => {
   const sent = [];
   global.fetch = async () => new Response(JSON.stringify({capabilities: ['chat'], dataMode: 'non_sensitive_beta', webEnabled: true}));
   let root;
@@ -76,12 +76,33 @@ test('beta keeps its notice without a checkbox and attaches only an explicit URL
     await act(async () => url.props.onChange({target: {value: 'https://example.com/'}}));
     assert.equal(root.root.findAllByType('input').some(input => input.props.type === 'checkbox'), false);
     assert.equal(root.root.findAllByProps({role:'note'}).length,1);
+    assert.equal(root.root.findByProps({role:'note'}).props.children,'Public information only');
     assert.equal(send().props.disabled, false);
     await act(async () => send().props.onClick());
     assert.deepEqual(sent[0][1].webUrls, ['https://example.com/']);
     assert.equal(root.root.findByType('textarea').props.value, '');
-    assert.equal(root.root.findAllByType('button').find(button => button.props.children === 'Chat').props['aria-pressed'], true);
+    assert.equal(root.root.findAllByType('button').find(button => button.props.children === 'Auto').props['aria-pressed'], true);
   } finally { await act(async () => root.unmount()); }
+});
+
+test('touch keyboard Enter adds a line; explicit Send still submits the draft', async () => {
+  const previousWindow=global.window;
+  global.window={matchMedia:()=>({matches:true})};
+  global.fetch=async()=>new Response(JSON.stringify({capabilities:['chat']}));
+  const sent=[];
+  let root, prevented=false;
+  try {
+    await act(async()=>{root=create(React.createElement(ChatInput,{isGenerating:false,onSubmit:value=>sent.push(value)}));});
+    await act(async()=>root.root.findByType('textarea').props.onChange({target:{value:'First line'}}));
+    await act(async()=>root.root.findByType('textarea').props.onKeyDown({key:'Enter',shiftKey:false,nativeEvent:{isComposing:false},preventDefault(){prevented=true;}}));
+    assert.equal(prevented,false);
+    assert.equal(sent.length,0);
+    await act(async()=>root.root.findAllByType('button').find(button=>button.props['aria-label']==='Send message').props.onClick());
+    assert.deepEqual(sent,['First line']);
+  } finally {
+    if(root)await act(async()=>root.unmount());
+    global.window=previousWindow;
+  }
 });
 
 test('Web uses the one message box and returns to Chat before follow-ups', async () => {

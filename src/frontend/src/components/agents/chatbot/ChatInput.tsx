@@ -2,19 +2,20 @@ import { useEffect, useRef, useState } from "react";
 import { ChatInputProps } from "./types";
 import styles from "./ChatInput.module.css";
 import { Dictation } from "./Dictation";
+import { automaticLookup } from "./automaticLookup";
 
 const ACCEPT = ".pdf,.docx,.xlsx,.csv,.tsv,.txt,.md,.json,.png,.jpg,.jpeg,.webp,.wav,.mp3,.m4a,.ogg,.webm,.flac";
 const SUPPORTED = /\.(pdf|docx|xlsx|csv|tsv|txt|md|json|png|jpe?g|webp|wav|mp3|m4a|ogg|webm|flac)$/i;
-type Tool = "chat" | "web" | "image" | "video";
+type Tool = "auto" | "chat" | "web" | "image" | "video";
 
 export const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isGenerating, currentUserMessage, draft, onStop }) => {
   const [text, setText] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [fileError, setFileError] = useState<string>();
-  const [tool, setTool] = useState<Tool>("chat");
+  const [tool, setTool] = useState<Tool>("auto");
   const [capabilities, setCapabilities] = useState<string[]>([]);
   const [connection, setConnection] = useState<"loading" | "ready" | "error">("loading");
-  const [beta, setBeta] = useState(false);
+  const [publicDataOnly, setPublicDataOnly] = useState(false);
   const [webEnabled, setWebEnabled] = useState(false);
   const [videoEnabled, setVideoEnabled] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -29,13 +30,17 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isGenerating, cu
       .then(value => {
         if (controller.signal.aborted) return;
         if (!Array.isArray(value?.capabilities) || !value.capabilities.includes("chat")) throw new Error();
-        setCapabilities(value.capabilities); setBeta(value.dataMode === "non_sensitive_beta");
+        setCapabilities(value.capabilities); setPublicDataOnly(value.dataMode === "non_sensitive_beta");
         setWebEnabled(value.webEnabled === true); setVideoEnabled(value.videoAnalysis === true); setConnection("ready");
+        if (value.dataMode !== "non_sensitive_beta" || value.webEnabled !== true) {
+          setTool(previous => previous === "auto" ? "chat" : previous);
+        }
       }).catch(() => { if (!controller.signal.aborted) setConnection("error"); });
     return () => controller.abort();
   }, []);
   useEffect(() => { if (currentUserMessage !== undefined) setText(currentUserMessage); }, [currentUserMessage]);
-  useEffect(() => { if (draft !== undefined) { setText(draft.text); setTool("chat"); textarea.current?.focus(); } }, [draft]);
+  const autoAvailable = publicDataOnly && webEnabled;
+  useEffect(() => { if (draft !== undefined) { setText(draft.text); setTool(autoAvailable ? "auto" : "chat"); textarea.current?.focus(); } }, [draft, autoAvailable]);
   useEffect(() => {
     if (!textarea.current) return;
     textarea.current.style.height = "auto";
@@ -65,12 +70,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isGenerating, cu
       } else {
         onSubmit(value, {mode: "chat", webQuery: value});
       }
-      // Follow-up conversation stays out of search unless Web is selected again.
-      setTool("chat");
+      setTool(autoAvailable ? "auto" : "chat");
     } else {
       if (tool === "video" && !files.length) { setFileError("Attach a short video to analyze."); return; }
+      const lookup = tool === "auto" && autoAvailable && files.length === 0 ? automaticLookup(value) : undefined;
       onSubmit(value || (tool === "video" ? "Summarize the video with sampled-frame timestamps and any audio transcript. State the sampling limitations."
-        : "Review the attached sources and explain their contents."), {files, mode: tool === "image" ? "image" : "chat"});
+        : "Review the attached sources and explain their contents."), {files, mode: tool === "image" ? "image" : "chat", ...lookup});
     }
     setText(""); setFiles([]); setFileError(undefined); textarea.current?.focus();
   };
@@ -95,25 +100,30 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isGenerating, cu
     onDragOver={event => { if (event.dataTransfer.types.includes("Files")) { event.preventDefault(); setDragging(true); } }}
     onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDragging(false); }}
     onDrop={event => { event.preventDefault(); setDragging(false); attach(Array.from(event.dataTransfer.files)); }}>
-    {beta && <div className={styles.betaNotice} role="note">
-      <span><strong>Beta · No patient data</strong><span className={styles.retention}> · Azure may retain content</span></span>
-    </div>}
+    {publicDataOnly && <div className={styles.dataMode} role="note">Public information only</div>}
     {connection !== "ready" && <p role="status" className={styles.connection}>
       {connection === "loading" ? "Connecting…" : "Connection unavailable. Reload the page to reconnect."}
     </p>}
     <textarea ref={textarea} aria-label="Message JMCGPT"
       placeholder={tool === "web" ? "Search the web or paste a public page URL…" : tool === "image" ? "Describe an image, or drop an image to edit…" : tool === "video" ? "Drop a short video and ask about it…" : "Ask anything, or drop a file…"}
-      value={text} rows={2} autoComplete="off" spellCheck={false} maxLength={tool === "web" ? 1000 : tool === "image" ? 4000 : 300_000}
+      value={text} rows={2} autoComplete="off" spellCheck={false} enterKeyHint="enter" maxLength={tool === "web" ? 1000 : tool === "image" ? 4000 : 300_000}
       onChange={event => setText(event.target.value)}
       onPaste={event => {
         const pasted = Array.from(event.clipboardData.items).filter(item => item.kind === "file").map(item => item.getAsFile()).filter((file): file is File => !!file);
         if (pasted.length) { event.preventDefault(); attach(pasted); }
       }}
-      onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); send(); } }} />
+      onKeyDown={event => {
+        const touchKeyboard = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
+        if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing
+          && (!touchKeyboard || event.ctrlKey || event.metaKey)) { event.preventDefault(); send(); }
+      }} />
     {files.length > 0 && <ul className={styles.files} aria-label="Pending attachments">{files.map((file, index) =>
       <li key={index}><span>{file.name}</span><button type="button" disabled={isGenerating} aria-label={`Remove ${file.name}`}
         onClick={() => setFiles(files.filter((_, position) => position !== index))}>×</button></li>)}</ul>}
     {tool === "web" && <p className={styles.toolHint}>Only this public query goes to Bing, under separate data terms. Chat history and files are excluded. A pasted URL goes only to that website.</p>}
+    {tool === "auto" && autoAvailable && <p className={styles.toolHint}>{files.length
+      ? "Automatic web lookup is off for messages with files."
+      : "Auto checks current public information. Chat skips lookup."}</p>}
     {tool === "image" && <p className={styles.toolHint}>Describe a new image, or attach one image and describe the changes.</p>}
     {tool === "video" && <p className={styles.toolHint}>Analyze a clip, read visible text, or transcribe its audio. Up to 60 seconds, 8 MiB, 1080p / 60 fps. Eight sampled frames may miss brief events. Video generation awaits a connected provider.</p>}
     <div className={styles.controls}>
@@ -124,13 +134,16 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSubmit, isGenerating, cu
         onClick={() => fileInput.current?.click()}
         title="Attach documents, images, audio or short videos. Up to 6 files; 8 MiB each, 12 MiB total. Sent only when you press Send.">＋</button>
       <div className={styles.tools} role="group" aria-label="Choose a tool">
+        {autoAvailable && <button type="button" aria-pressed={tool === "auto"} disabled={isGenerating || dictating} onClick={() => chooseTool("auto")}>Auto</button>}
         <button type="button" aria-pressed={tool === "chat"} disabled={isGenerating || dictating} onClick={() => chooseTool("chat")}>Chat</button>
         {webEnabled && <button type="button" aria-pressed={tool === "web"} disabled={isGenerating || dictating} onClick={() => chooseTool("web")}>Web</button>}
         {capabilities.includes("images") && <button type="button" aria-pressed={tool === "image"} disabled={isGenerating || dictating} onClick={() => chooseTool("image")}>Image</button>}
         {videoEnabled && <button type="button" aria-pressed={tool === "video"} disabled={isGenerating || dictating} onClick={() => chooseTool("video")}>Video</button>}
       </div>
-      {beta && capabilities.includes("transcription") && <Dictation disabled={isGenerating || connection!=="ready" || tool!=="chat"}
-        onBusy={setDictating} onText={value=>setText(previous=>(previous?previous+"\n":"")+value)} />}
+      {publicDataOnly && capabilities.includes("transcription") && <div className={styles.dictation}>
+        <Dictation disabled={isGenerating || connection!=="ready" || tool!=="chat" && tool!=="auto"}
+          onBusy={setDictating} onText={value=>setText(previous=>(previous?previous+"\n":"")+value)} />
+      </div>}
       {isGenerating ? <button type="button" className={styles.stop} aria-label="Stop response" onClick={onStop}>Stop</button>
         : <button type="button" className={styles.send} aria-label="Send message" disabled={!canSend} onClick={send}>↑</button>}
     </div>

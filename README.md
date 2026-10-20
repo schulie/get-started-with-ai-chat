@@ -1,10 +1,10 @@
 # JMCGPT — Jay Medical Clinic
 
-Internal, session-only Azure AI assistant. Current release: **2.0.0-beta.5**. This beta is for **synthetic/public/non-sensitive data only**; it is not cleared for PHI. Microsoft's provider-retention review is pending.
+Internal, session-only Azure AI assistant. Prepared source release: **2.0.0-beta.6**; latest recorded deployment: **2.0.0-beta.5**. This beta is for **synthetic/public/non-sensitive data only**; it is not cleared for PHI. Microsoft's provider-retention review is pending.
 
 The active application is `src/api/secure_app.py` with the React frontend in `src/frontend`. Build with `src/Dockerfile.secure`. The original Azure sample and earlier JMCGPT release files remain below and elsewhere in the repository for reference; their deployment instructions are not the active beta release procedure.
 
-Features include chat, document and image analysis, image generation/editing, audio transcription, explicit public web search and page reading, and short-video analysis. Speech adds microphone recording with explicit transcription into an editable draft and read-aloud using installed device voices. Video generation and continuous live voice conversation are not enabled.
+Features include chat, document and image analysis, image generation/editing, audio transcription, public web search and page reading, and short-video analysis. Auto mode looks up eligible current-information questions without selecting Web each time; Chat opts out. Speech adds microphone recording with explicit transcription into an editable draft and read-aloud using installed device voices. Video generation and continuous live voice conversation are not enabled.
 
 No conversation database or saved upload history is used. Session contents clear on refresh, New Chat, sign-out and 15-minute inactivity. Staff access requires the clinic's Entra tenant and exact staff domain. Existing MFA remains in place. Beta mode does not guarantee provider zero retention.
 

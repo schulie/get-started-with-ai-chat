@@ -12,7 +12,9 @@ export function TaskStatus({ task }: { task: ChatTask }) {
     const interval = window.setInterval(tick, 250);
     return () => window.clearInterval(interval);
   }, [task.startedAt, running]);
-  const label = {
+  const label = task.phase === "working" && task.activity ? {
+    searching: "Searching web", reading: "Reading public page", preparing: "Preparing files",
+  }[task.activity] : {
     working: "Working", writing: "Writing response", completed: "Completed",
     stopped: "Stopped", failed: "Request failed",
   }[task.phase];

@@ -80,7 +80,7 @@ test('beta keeps its notice without a checkbox and attaches only an explicit URL
     await act(async () => send().props.onClick());
     assert.deepEqual(sent[0][1].webUrls, ['https://example.com/']);
     assert.equal(root.root.findByType('textarea').props.value, '');
-    assert.equal(root.root.findAllByType('button').find(button => button.props.children === 'Chat').props['aria-pressed'], true);
+    assert.equal(root.root.findAllByType('button').find(button => button.props.children === 'Auto').props['aria-pressed'], true);
   } finally { await act(async () => root.unmount()); }
 });
 

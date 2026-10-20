@@ -96,8 +96,8 @@ export function AssistantMessage({
     >
       <Suspense fallback={<Spinner size="small" />}>
         <Markdown content={message.content} />
-        {message.generatedImage && <figure>
-          <img src={message.generatedImage} alt="Generated image" style={{maxWidth: "100%", maxHeight: 600, borderRadius: 12}} />
+        {message.generatedImage && <figure className={styles.generatedImage}>
+          <img src={message.generatedImage} alt="Generated image" />
           <figcaption><a href={message.generatedImage} download="jmcgpt-image.jpg">Download image</a> · Generated content; review before use.</figcaption>
         </figure>}
       </Suspense>

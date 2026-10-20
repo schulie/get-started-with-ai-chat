@@ -7,6 +7,7 @@ import { AgentPreviewChatBot } from "./AgentPreviewChatBot";
 import { MenuButton } from "../core/MenuButton/MenuButton";
 import { ChatDraft, SendOptions } from "./chatbot/types";
 import { useChatSession, SESSION_IDLE_MINUTES } from "./hooks/useChatSession";
+import { useViewportHeight } from "./hooks/useViewportHeight";
 import release from "../../release.json";
 
 import styles from "./AgentPreview.module.css";
@@ -47,6 +48,7 @@ const starterPrompts = [
 export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
   const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
   const session = useChatSession();
+  const viewportHeight = useViewportHeight();
   const { messageList } = session;
   const [draft, setDraft] = useState<ChatDraft>();
   const handleSettingsPanelOpenChange = (isOpen: boolean) => setIsSettingsPanelOpen(isOpen);
@@ -105,7 +107,8 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
   };
 
   return (
-    <div className={styles.container}>
+    <div className={styles.container} style={viewportHeight ? { height: viewportHeight } : undefined}
+      data-compact={viewportHeight !== undefined && viewportHeight < 480}>
       <header className={styles.topBar}>
         <div className={styles.leftSection}>
           <img className={styles.clinicLogo} src="/static/jay-medical-logo.png" alt="Jay Medical Clinic logo" width={88} height={52} />
@@ -119,9 +122,10 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
           <Button
             appearance="subtle"
             icon={<ChatRegular aria-hidden={true} />}
+            aria-label="New chat"
             onClick={newThread}
           >
-            New Chat
+            <span className={styles.newChatLabel}>New Chat</span>
           </Button>{" "}
           <MenuButton
             menuButtonText=""
@@ -129,6 +133,7 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
             menuButtonProps={{
               appearance: "subtle",
               icon: <MoreHorizontalRegular />,
+              menuIcon: null,
               "aria-label": "Settings",
             }}
           />
@@ -138,7 +143,7 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
             {messageList.length === 0 && (
               <div className={styles.emptyChatContainer}>
                 <h1 className={styles.welcomeTitle}>How can I help?</h1>
-                <p className={styles.welcomeDescription}>Ask a question, add a file, or explore with Web and Image.</p>
+                <p className={styles.welcomeDescription}>Ask a question or add a file. Auto checks current public information.</p>
                 <div className={styles.starterGrid} aria-label="Suggested prompts">
                   {starterPrompts.map((prompt) => (
                     <button
@@ -163,7 +168,11 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
             />
       </main>
 
-      <p className={styles.sessionPolicy}>Session clears on refresh or after {SESSION_IDLE_MINUTES} minutes idle · Verify important answers · v{release.version}</p>
+      <p className={styles.sessionPolicy}>
+        <span className={styles.desktopPolicy}>Clears on refresh or after {SESSION_IDLE_MINUTES} minutes idle</span>
+        <span className={styles.mobilePolicy}>Session-only · {SESSION_IDLE_MINUTES} min idle</span>
+        <span> · v{release.version}</span>
+      </p>
 
       {/* Settings Panel */}
       <SettingsPanel

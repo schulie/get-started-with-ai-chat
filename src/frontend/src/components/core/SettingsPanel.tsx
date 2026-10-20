@@ -35,6 +35,7 @@ export function SettingsPanel({
             <div>
               <Button
                 appearance="subtle"
+                aria-label="Close settings"
                 icon={<Dismiss24Regular />}
                 onClick={() => {
                   onOpenChange(false);

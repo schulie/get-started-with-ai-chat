@@ -1,16 +1,16 @@
 # JMCGPT — Jay Medical Clinic
 
-Internal, session-only Azure AI assistant. Prepared source release: **2.0.0-beta.6**; latest recorded deployment: **2.0.0-beta.5**. This beta is for **synthetic/public/non-sensitive data only**; it is not cleared for PHI. Microsoft's provider-retention review is pending.
+Internal, session-only Azure AI assistant for Jay Medical Clinic. Current source release: **2.0.0**, with a compact phone layout and automatic public lookup.
 
-The active application is `src/api/secure_app.py` with the React frontend in `src/frontend`. Build with `src/Dockerfile.secure`. The original Azure sample and earlier JMCGPT release files remain below and elsewhere in the repository for reference; their deployment instructions are not the active beta release procedure.
+The active application is `src/api/secure_app.py` with the React frontend in `src/frontend`. Build with `src/Dockerfile.secure`. The original Azure sample and earlier JMCGPT release files remain below and elsewhere in the repository for reference; use the current release procedure linked below for this application.
 
 Features include chat, document and image analysis, image generation/editing, audio transcription, public web search and page reading, and short-video analysis. Auto mode looks up eligible current-information questions without selecting Web each time; Chat opts out. Speech adds microphone recording with explicit transcription into an editable draft and read-aloud using installed device voices. Video generation and continuous live voice conversation are not enabled.
 
-No conversation database or saved upload history is used. Session contents clear on refresh, New Chat, sign-out and 15-minute inactivity. Staff access requires the clinic's Entra tenant and exact staff domain. Existing MFA remains in place. Beta mode does not guarantee provider zero retention.
+No conversation database or saved upload history is used. Session contents clear on refresh, New Chat, sign-out and 15-minute inactivity. Staff access requires the clinic's Entra tenant and exact staff domain. Existing MFA remains in place. Deployment data permissions and provider retention are configured separately from the application version; see the configuration and release documentation below.
 
 Read the current release documentation:
 
-- [Beta architecture, boundaries and deployment](docs/JMCGPT-BETA.md)
+- [Architecture, data modes and deployment history](docs/JMCGPT-BETA.md)
 - [Video features and limits](docs/JMCGPT-VIDEO-BETA.md)
 - [Speech controls and device requirements](docs/JMCGPT-SPEECH-BETA.md)
 - [Production privacy requirements](docs/JMCGPT-SECURE-RELEASE.md)
@@ -28,10 +28,10 @@ npx --yes pnpm@10.6.0 install --frozen-lockfile
 npx --yes pnpm@10.6.0 test
 npx --yes pnpm@10.6.0 build
 cd ../..
-docker build -f src/Dockerfile.secure -t jmcgpt:2.0.0-beta.5 src/
+docker build -f src/Dockerfile.secure -t jmcgpt:2.0.0 src/
 ```
 
-The beta was built and deployed through Azure CLI and ACR, without GitHub Actions. Credentials, auth caches, clinic content and local synthetic-identity wrappers are excluded from source control. Compiled frontend assets are regenerated during the Docker build.
+Build and deploy through Azure CLI and ACR, without GitHub Actions. Credentials, auth caches, clinic content and local synthetic-identity wrappers are excluded from source control. Compiled frontend assets are regenerated during the Docker build.
 
 ---
 

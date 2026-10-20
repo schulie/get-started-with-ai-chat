@@ -4,7 +4,6 @@
 .copilotChatContainer { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow-y: auto; gap: 14px; padding: 8px 6px 0; scrollbar-width: thin; }
 .inputContainer { flex-shrink: 0; padding: 10px; border: 1px solid var(--colorNeutralStroke1); border-radius: 18px; background: var(--colorNeutralBackground1); box-shadow: 0 7px 28px #153b3210; }
 .inputContainer:focus-within { border-color: #16685f; box-shadow: 0 0 0 2px #16685f20; }
-.inputContainer > div:first-child > div:first-child { padding: 10px 10px 5px; border: none; background: transparent; }
 .inputContainer :global(textarea), .inputContainer :global([contenteditable="true"]) { font-size: 16px; line-height: 24px; }
 .composerHint { margin: 7px 10px 2px; color: var(--colorNeutralForeground3); font-size: 11px; line-height: 16px; }
 .composerHint span { padding: 0 5px; }

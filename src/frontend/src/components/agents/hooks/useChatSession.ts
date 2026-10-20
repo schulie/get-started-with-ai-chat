@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { IChatItem } from "../chatbot/types";
+import { IChatItem, SendOptions } from "../chatbot/types";
 import { ChatStreamError, ChatTask, readChatStream } from "../chatbot/session";
+import { prepareUploads, prepareWebPages, prepareWebSearch } from "../chatbot/uploads";
 
 // A clinic may change this policy. This clears chat content, not the Entra login.
 export const SESSION_IDLE_MINUTES = 15;
@@ -64,12 +65,43 @@ export function useChatSession() {
     let timedOut = false;
     const timeout = window.setTimeout(() => { timedOut = true; controller.abort(); }, 240_000);
     try {
+      // Parse/transcribe only on Send. Prepared parts replace raw files in memory
+      // so follow-up questions and retries do not re-upload or re-transcribe.
+      for (let index = 0; index < history.length; index += 1) {
+        const item = history[index];
+        if (item.webQuery) {
+          const parts = await prepareWebSearch(item.webQuery, controller.signal);
+          if (!isCurrent()) return;
+          history = history.map((message, position) => position === index
+            ? {...message, attachments: [...(message.attachments ?? []), ...parts], webQuery: undefined} : message);
+          lastRequest.current = history;
+          setMessages([...history, messages.current.find(message => message.id === id) ?? assistant]);
+        }
+        if (item.webUrls?.length) {
+          const parts = await prepareWebPages(item.webUrls, controller.signal);
+          if (!isCurrent()) return;
+          history = history.map((message, position) => position === index
+            ? {...message, attachments: [...(message.attachments ?? []), ...parts], webUrls: undefined} : message);
+          lastRequest.current = history;
+          setMessages([...history, messages.current.find(message => message.id === id) ?? assistant]);
+        }
+        if (item.uploads?.length) {
+          const attachments = await prepareUploads(item.uploads, controller.signal);
+          if (!isCurrent()) return;
+          history = history.map((message, position) => position === index
+            ? {...message, attachments: [...(message.attachments ?? []), ...attachments], uploads: undefined} : message);
+          lastRequest.current = history;
+          setMessages([...history, messages.current.find(message => message.id === id) ?? assistant]);
+        }
+      }
+      if (!isCurrent()) return;
       const response = await fetch("/chat", {
         method: "POST", credentials: "include", cache: "no-store",
-        headers: { "Content-Type": "application/json", "Accept": "text/event-stream" },
+        headers: { "Content-Type": "application/json", "Accept": "text/event-stream", "X-JMCGPT-Data-Classification": "non-sensitive" },
         signal: controller.signal,
-        body: JSON.stringify({ messages: history.map((item) => ({
+        body: JSON.stringify({ mode: history.at(-1)?.requestMode ?? "chat", messages: history.map((item) => ({
           role: item.isAnswer ? "assistant" : "user", content: item.content,
+          ...(item.attachments?.length ? {attachments: item.attachments} : {}),
         })) }),
       });
       if (!response.ok) {
@@ -96,7 +128,7 @@ export function useChatSession() {
         if (!isCurrent()) return;
         updateAssistant({ content, status: "writing" });
         setTask({ id, phase: "writing", startedAt });
-      });
+      }, (generatedImage) => updateAssistant({generatedImage}));
     } catch (cause) {
       if (!isCurrent()) return;
       if (controller.signal.aborted && !timedOut) {
@@ -119,12 +151,15 @@ export function useChatSession() {
     }
   }, [setMessages]);
 
-  const onSend = useCallback((text: string, editingId?: string) => {
+  const onSend = useCallback((text: string, editingId?: string, options?: SendOptions) => {
     if (active.current || !text.trim()) return;
     const index = editingId ? messages.current.findIndex((item) => item.id === editingId && !item.isAnswer) : -1;
     const history = index >= 0 ? messages.current.slice(0, index) : messages.current;
     const userMessage: IChatItem = {
       id: crypto.randomUUID(), role: "user", content: text.trim(),
+      uploads: options?.files, uploadNames: options?.files?.length ? options.files.map(file => file.name) : undefined, requestMode: options?.mode ?? "chat",
+      webUrls: options?.webUrls,
+      webQuery: options?.webQuery,
       more: { time: new Date().toISOString() },
     };
     void execute([...history.filter((item) => item.content.trim()), userMessage]);

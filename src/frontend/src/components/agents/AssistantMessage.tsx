@@ -8,6 +8,7 @@ import {
 import { Suspense, useState } from "react";
 import copy from "copy-to-clipboard";
 import { formatDuration } from "./chatbot/session";
+import { ReadAloud } from "./chatbot/ReadAloud";
 
 import { Markdown } from "../core/Markdown";
 import { UsageInfo } from "./UsageInfo";
@@ -48,6 +49,7 @@ export function AssistantMessage({
             window.setTimeout(() => setCopied(false), 2000);
           }}>{copied ? "Copied" : "Copy"}</Button>}
           {onRegenerate && <Button appearance="subtle" onClick={onRegenerate}>Regenerate</Button>}
+          {message.content && loadingState !== "loading" && <ReadAloud text={message.content} />}
 
           {onDelete && message.usageInfo && (
             <Button
@@ -62,7 +64,7 @@ export function AssistantMessage({
       }
       avatar={<AgentIcon alt="" iconName={agentLogo} />}
       className={styles.copilotChatMessage}
-      disclaimer={<span>AI-generated content may be incorrect</span>}
+      disclaimer={null}
       footnote={
         <>
           {message.duration !== undefined && <span className={styles.messageDuration}>
@@ -94,6 +96,10 @@ export function AssistantMessage({
     >
       <Suspense fallback={<Spinner size="small" />}>
         <Markdown content={message.content} />
+        {message.generatedImage && <figure>
+          <img src={message.generatedImage} alt="Generated image" style={{maxWidth: "100%", maxHeight: 600, borderRadius: 12}} />
+          <figcaption><a href={message.generatedImage} download="jmcgpt-image.jpg">Download image</a> · Generated content; review before use.</figcaption>
+        </figure>}
       </Suspense>
     </CopilotMessage>
   );

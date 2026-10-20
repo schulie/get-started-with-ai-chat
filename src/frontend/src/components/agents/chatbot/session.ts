@@ -24,6 +24,7 @@ export async function readChatStream(
   stream: ReadableStream<Uint8Array>,
   signal: AbortSignal,
   onContent: (content: string) => void,
+  onImage?: (dataUrl: string) => void,
 ): Promise<void> {
   const reader = stream.getReader();
   const decoder = new TextDecoder();
@@ -50,7 +51,10 @@ export async function readChatStream(
       // Provider messages can echo PHI, endpoints or credentials. Use a fixed message.
       throw new ChatStreamError("JMCGPT could not complete the request. Please retry.");
     }
-    if (event.type === "message" || event.type === "completed_message") {
+    if (event.type === "image") {
+      if (typeof event.content !== "string" || event.content.length > 6_000_000 || !/^data:image\/jpeg;base64,[A-Za-z0-9+/]+=*$/.test(event.content)) throw new ChatStreamError();
+      onImage?.(event.content);
+    } else if (event.type === "message" || event.type === "completed_message") {
       if (typeof event.content !== "string") throw new ChatStreamError();
       content = event.type === "completed_message" ? event.content : content + event.content;
       onContent(content);
@@ -67,7 +71,7 @@ export async function readChatStream(
       const { done, value } = await reader.read();
       checkAbort();
       buffer += done ? decoder.decode() : decoder.decode(value, { stream: true });
-      if (buffer.length > 1_000_000) throw new ChatStreamError();
+      if (buffer.length > 6_100_000) throw new ChatStreamError();
       let match: RegExpExecArray | null;
       while ((match = /\r?\n\r?\n/.exec(buffer))) {
         const frame = buffer.slice(0, match.index);

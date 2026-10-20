@@ -24,6 +24,7 @@
   background: var(--colorNeutralBackground1);
 }
 .leftSection, .rightSection { display: flex; align-items: center; gap: 12px; }
+.clinicLogo { display: block; width: 88px; height: 52px; object-fit: contain; flex-shrink: 0; }
 .brandMark {
   display: grid; place-items: center; width: 42px; height: 42px; flex-shrink: 0;
   border-radius: 13px; color: white; background: var(--jmc-accent);
@@ -34,19 +35,19 @@
 .brandText span { font-size: 12px; line-height: 16px; color: var(--colorNeutralForeground3); }
 .content {
   display: flex; flex: 1; min-height: 0; flex-direction: column;
-  width: min(960px, calc(100% - 48px)); box-sizing: border-box;
+  width: min(840px, calc(100% - 48px)); box-sizing: border-box;
   margin: 0 auto; padding: 24px 0 18px; overflow: hidden;
 }
 .content[data-empty="true"] { justify-content: center; overflow-y: auto; }
 .emptyChatContainer { flex-shrink: 0; padding: 24px 0 26px; }
 .eyebrow { color: var(--colorNeutralForeground2); font-size: 11px; line-height: 16px; font-weight: 700; letter-spacing: 2px; }
-.welcomeTitle { margin: 16px 0; font-size: clamp(34px, 4.7vw, 56px); line-height: 1.08; font-weight: 650; letter-spacing: -2px; }
+.welcomeTitle { margin: 12px 0; font-size: clamp(30px, 4vw, 42px); line-height: 1.2; font-weight: 600; letter-spacing: -1.3px; }
 .welcomeDescription { margin: 0; max-width: 560px; color: var(--colorNeutralForeground2); font-size: 16px; line-height: 26px; }
-.starterGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 30px; }
+.starterGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 22px; }
 .starterCard {
-  display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 19px 16px;
+  display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 13px 12px;
   text-align: left; font: inherit; color: var(--colorNeutralForeground1);
-  border: 1px solid var(--colorNeutralStroke2); border-radius: 14px;
+  border: 1px solid var(--colorNeutralStroke2); border-radius: 12px;
   background: var(--colorNeutralBackground1); cursor: pointer;
   transition: border-color .15s, transform .15s, box-shadow .15s;
 }
@@ -62,6 +63,7 @@
   .rightSection { gap: 2px; }
 }
 @media (max-width: 500px) {
+  .clinicLogo { width: 70px; height: 42px; }
   .topBar { padding: 14px 16px; gap: 8px; }
   .leftSection { gap: 9px; }
   .brandMark { width: 36px; height: 36px; border-radius: 11px; font-size: 21px; }

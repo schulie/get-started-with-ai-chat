@@ -38,6 +38,7 @@ export function UserMessage({
     >
       <Suspense fallback={<Spinner size="small" />}>
         <Markdown content={message.content} />
+        {message.uploadNames && <ul aria-label="Attached files">{message.uploadNames.map((name, index) => <li key={index}>{name}</li>)}</ul>}
       </Suspense>
     </CopilotUserMessage>
   );

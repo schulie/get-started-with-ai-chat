@@ -7,8 +7,8 @@ const App: React.FC = () => {
       id: "chatbot",
       object: "chatbot",
       created_at: Date.now(),
-      name: "Chatbot",
-      description: "This is a sample chatbot.",
+      name: "Jay Medical Clinic Assistant",
+      description: "Session-only staff assistant.",
       model: "default",
       metadata: {
         logo: "Avatar_Default.svg",

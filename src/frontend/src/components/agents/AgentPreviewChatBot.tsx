@@ -38,7 +38,7 @@ export function AgentPreviewChatBot({ agentName, agentLogo, chatContext, draft }
           ))}
         </div>
       )}
-      {chatContext.task && <TaskStatus task={chatContext.task} />}
+      {chatContext.task && ["working", "writing"].includes(chatContext.task.phase) && <TaskStatus task={chatContext.task} />}
       {chatContext.error && <div role="alert" className={styles.errorPanel}>
         <span>{chatContext.error}</span>
         {chatContext.canRetry && <Button appearance="subtle" onClick={chatContext.onRetry}>Retry</Button>}
@@ -49,12 +49,11 @@ export function AgentPreviewChatBot({ agentName, agentLogo, chatContext, draft }
       </div>}
       <div className={styles.inputContainer}>
         <ChatInput key={edit?.id ?? "compose"} draft={edit?.draft ?? draft} isGenerating={chatContext.isResponding} onStop={chatContext.onStop}
-          onSubmit={(text) => {
+          onSubmit={(text, options) => {
             follow.current = true;
-            chatContext.onSend(text, edit?.id);
+            chatContext.onSend(text, edit?.id, options);
             setEdit(undefined);
           }} />
-        <p className={styles.composerHint}>Enter to send <span aria-hidden="true">·</span> Shift + Enter for a new line</p>
       </div>
     </div>
   );

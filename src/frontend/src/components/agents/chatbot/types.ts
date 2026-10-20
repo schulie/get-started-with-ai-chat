@@ -29,6 +29,13 @@ export interface IChatItem {
   id: string;
   role?: string;
   content: string;
+  attachments?: AttachmentPart[];
+  uploads?: File[];
+  webUrls?: string[];
+  webQuery?: string;
+  uploadNames?: string[];
+  requestMode?: "chat" | "image";
+  generatedImage?: string;
   isAnswer?: boolean;
   annotations?: any[];
   fileReferences?: Map<string, any>;
@@ -51,7 +58,7 @@ export interface ChatDraft {
 }
 
 export interface ChatInputProps {
-  onSubmit: (message: string) => void;
+  onSubmit: (message: string, options?: SendOptions) => void;
   isGenerating: boolean;
   currentUserMessage?: string;
   onStop?: () => void;
@@ -76,7 +83,7 @@ export interface IUserMessageProps {
 export interface ChatContextType {
   messageList: IChatItem[];
   isResponding: boolean;
-  onSend: (message: string, editingId?: string) => void;
+  onSend: (message: string, editingId?: string, options?: SendOptions) => void;
   onStop?: () => void;
   onRetry?: () => void;
   onRegenerate?: () => void;
@@ -91,3 +98,6 @@ export interface AgentPreviewChatBotProps {
   chatContext: ChatContextType;
   draft?: ChatDraft;
 }
+
+export type AttachmentPart = { type: "text"; text: string } | { type: "image"; data_url: string };
+export interface SendOptions { files?: File[]; mode?: "chat" | "image"; webUrls?: string[]; webQuery?: string }

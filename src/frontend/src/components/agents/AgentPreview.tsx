@@ -5,7 +5,7 @@ import { ChatRegular, MoreHorizontalRegular } from "@fluentui/react-icons";
 import { SettingsPanel } from "../core/SettingsPanel";
 import { AgentPreviewChatBot } from "./AgentPreviewChatBot";
 import { MenuButton } from "../core/MenuButton/MenuButton";
-import { ChatDraft } from "./chatbot/types";
+import { ChatDraft, SendOptions } from "./chatbot/types";
 import { useChatSession, SESSION_IDLE_MINUTES } from "./hooks/useChatSession";
 import release from "../../release.json";
 
@@ -98,7 +98,7 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
 
   const chatContext = {
     ...session,
-    onSend: (text: string, editingId?: string) => { session.onSend(text, editingId); setDraft(undefined); },
+    onSend: (text: string, editingId?: string, options?: SendOptions) => { session.onSend(text, editingId, options); setDraft(undefined); },
     onStop: session.stop,
     onRetry: session.retry,
     onRegenerate: session.regenerate,
@@ -108,7 +108,7 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
     <div className={styles.container}>
       <header className={styles.topBar}>
         <div className={styles.leftSection}>
-          <span className={styles.brandMark} aria-hidden="true">J+</span>
+          <img className={styles.clinicLogo} src="/static/jay-medical-logo.png" alt="Jay Medical Clinic logo" width={88} height={52} />
           <div className={styles.brandText}>
             <strong>JMCGPT</strong>
             <span>Jay Medical Clinic</span>
@@ -137,20 +137,17 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
       <main className={styles.content} data-empty={messageList.length === 0}>
             {messageList.length === 0 && (
               <div className={styles.emptyChatContainer}>
-                <span className={styles.eyebrow}>JAY MEDICAL CLINIC STAFF ASSISTANT</span>
-                <h1 className={styles.welcomeTitle}>Clinical, billing,<br />and practice support.</h1>
-                <p className={styles.welcomeDescription}>A workspace for clinical reference, coding and claims, patient communication, and day-to-day clinic operations.</p>
+                <h1 className={styles.welcomeTitle}>How can I help?</h1>
+                <p className={styles.welcomeDescription}>Ask a question, add a file, or explore with Web and Image.</p>
                 <div className={styles.starterGrid} aria-label="Suggested prompts">
-                  {starterPrompts.map((prompt, index) => (
+                  {starterPrompts.map((prompt) => (
                     <button
                       type="button"
                       className={styles.starterCard}
                       key={prompt.title}
                       onClick={() => setDraft((previous) => ({ text: prompt.text, id: (previous?.id ?? 0) + 1 }))}
                     >
-                      <span className={styles.starterIndex} aria-hidden="true">0{index + 1}</span>
                       <strong>{prompt.title}</strong>
-                      <span className={styles.starterDescription}>{prompt.detail}</span>
                     </button>
                   ))}
                 </div>
@@ -166,7 +163,7 @@ export function AgentPreview({ agentDetails }: IAgentPreviewProps): ReactNode {
             />
       </main>
 
-      <p className={styles.sessionPolicy}>JMCGPT v{release.version} · Session only. Chat clears after {SESSION_IDLE_MINUTES} minutes of inactivity or when this page is reloaded.</p>
+      <p className={styles.sessionPolicy}>Session clears on refresh or after {SESSION_IDLE_MINUTES} minutes idle · Verify important answers · v{release.version}</p>
 
       {/* Settings Panel */}
       <SettingsPanel

@@ -2,3 +2,7 @@
 .venv/
 **/*.pyc
 **/node_modules/
+.env*
+!.env.secure.example
+**/.pytest_cache/
+**/__pycache__/

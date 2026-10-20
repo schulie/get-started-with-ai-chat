@@ -1,0 +1,21 @@
+{
+  "oldRevision": "ca-api-ax6jwjezmywau--beta4-202610200123",
+  "newRevision": "ca-api-ax6jwjezmywau--beta5-202610200135",
+  "image": "crax6jwjezmywau.azurecr.io/api_and_frontend@sha256:239a64dd74e8fb80fa22c34608f34af2f7402b5ccd55d026906790991ccbcb71",
+  "publicOrigin": "https://jmcgpt.jaymedical.com",
+  "dataMode": "non_sensitive_beta",
+  "traffic": "beta revision 100%",
+  "version": "2.0.0-beta.5",
+  "oldRevisionDeactivated": true,
+  "automatedTests": {
+    "backend": 46,
+    "frontend": 29
+  },
+  "dictation": "60-second browser recorder; explicit Transcribe; editable draft; existing Azure Whisper; no saved recordings",
+  "readAloud": "installed localService voices only; stops on session clear/page hide; up to 12000 characters",
+  "containerCheck": "Authenticated internal route passed with public weather sample and real Azure managed identity",
+  "browserCheck": "Signed-in Mic control and completed-answer Read aloud control verified; no hardware microphone captured",
+  "phiApproved": false,
+  "mfaPolicyChanged": false,
+  "githubActionsUsed": false
+}

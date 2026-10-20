@@ -109,3 +109,71 @@ test('editing branches history and inactivity removes all chat content', async (
     assert.equal(app.session.canRetry, false);
   } finally { await app.close(); }
 });
+
+test('uploads are prepared once, follow-ups reuse parts, and clear drops attachments', async () => {
+  const app = setup(); const calls = [];
+  global.fetch = async (url, options) => {
+    calls.push({url, body: JSON.parse(options.body)});
+    return url === '/api/attachments' ? new Response(JSON.stringify({parts: [{type: 'text', text: 'Synthetic document'}]})) : reply();
+  };
+  await app.mount();
+  try {
+    const file = new File(['Synthetic document'], 'synthetic.txt');
+    await act(async () => app.session.onSend('Review', undefined, {files: [file], mode: 'chat'}));
+    assert.deepEqual(calls.map(call => call.url), ['/api/attachments', '/chat']);
+    assert.equal(calls[1].body.messages[0].attachments[0].text, 'Synthetic document');
+    assert.equal(app.session.messageList[0].uploads, undefined);
+    await act(async () => app.session.onSend('Follow up'));
+    assert.deepEqual(calls.map(call => call.url), ['/api/attachments', '/chat', '/chat']);
+    await act(async () => app.session.clearSession());
+    assert.equal(app.session.messageList.length, 0);
+    assert.equal(app.session.canRetry, false);
+  } finally { await app.close(); }
+});
+
+test('clearing while parsing prevents a late upload from starting chat', async () => {
+  const app = setup(); let resolve; const calls = [];
+  global.fetch = (url) => { calls.push(url); return new Promise(done => { resolve = done; }); };
+  await app.mount();
+  try {
+    await act(async () => app.session.onSend('Review', undefined, {files: [new File(['Synthetic'], 'test.txt')]}));
+    await act(async () => app.session.clearSession());
+    await act(async () => resolve(new Response(JSON.stringify({parts: [{type: 'text', text: 'Late private content'}]}))));
+    assert.deepEqual(calls, ['/api/attachments']);
+    assert.equal(app.session.messageList.length, 0);
+  } finally { await app.close(); }
+});
+
+test('web reads send only selected URLs and follow-ups reuse the source without another fetch', async () => {
+  const app = setup(); const calls = [];
+  global.fetch = async (url, options) => {
+    calls.push({url, body: JSON.parse(options.body)});
+    return url === '/api/web' ? new Response(JSON.stringify({parts: [{type: 'text', text: 'Public source https://example.com/'}]})) : reply();
+  };
+  await app.mount();
+  try {
+    await act(async () => app.session.onSend('Summarize', undefined, {webUrls: ['https://example.com/']}));
+    assert.deepEqual(calls[0], {url: '/api/web', body: {urls: ['https://example.com/']}});
+    assert.equal(app.session.messageList[0].webUrls, undefined);
+    assert.match(calls[1].body.messages[0].attachments[0].text, /example.com/);
+    await act(async () => app.session.onSend('Follow up'));
+    assert.deepEqual(calls.map(call => call.url), ['/api/web', '/chat', '/chat']);
+  } finally { await app.close(); }
+});
+
+test('search uses only its explicit public query even when a document is attached', async () => {
+  const app = setup(); const calls = [];
+  global.fetch = async (url, options) => {
+    calls.push({url, body: JSON.parse(options.body)});
+    return url === '/api/search' ? new Response(JSON.stringify({parts: [{type:'text', text:'Public search source https://example.com/'}]}))
+      : url === '/api/attachments' ? new Response(JSON.stringify({parts: [{type:'text', text:'Synthetic document'}]})) : reply();
+  };
+  await app.mount();
+  try {
+    await act(async () => app.session.onSend('Use these sources', undefined, {webQuery:'public query', files:[new File(['Synthetic'], 'sample.txt')]}));
+    assert.deepEqual(calls[0], {url:'/api/search', body:{query:'public query'}});
+    assert.equal(calls[2].body.messages[0].attachments.length, 2);
+    await act(async () => app.session.onSend('Follow up'));
+    assert.equal(calls.filter(call => call.url === '/api/search').length, 1);
+  } finally { await app.close(); }
+});
